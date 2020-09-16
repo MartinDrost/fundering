@@ -82,6 +82,7 @@ export const getLookupPipeline = async (
   options?: IQueryOptions
 ): Promise<Conditions[]> => {
   const pipeline: Conditions[] = [];
+  const populatedKeys: string[] = [];
   for (const key of Array.from(new Set(keys))) {
     // filter mongo operators like $in, $or etc.
     const path = key
@@ -97,62 +98,65 @@ export const getLookupPipeline = async (
         break;
       }
 
-      // get any match condition for the related field
-      const conditions = await _service.onBeforeFind(options);
+      if (!populatedKeys.includes(journey.concat(field).join("."))) {
+        // get any match condition for the related field
+        const conditions = await _service.onBeforeFind(options);
 
-      // create a lookup aggregation to populate the models
-      pipeline.push({
-        $lookup: {
-          from: _service._model.collection.collectionName,
-          as: [...journey, field].filter(Boolean).join("."),
-          let: {
-            localField:
-              "$" +
-              [...journey, virtual.options.localField]
-                .filter(Boolean)
-                .join("."),
-          },
-          pipeline: [
-            {
-              $match: {
-                $and: [
-                  {
-                    $expr: {
-                      $cond: {
-                        if: { $isArray: "$$localField" },
-                        then: {
-                          $in: [
-                            "$" + virtual.options.foreignField,
-                            "$$localField",
-                          ],
-                        },
-                        else: {
-                          $eq: [
-                            "$" + virtual.options.foreignField,
-                            "$$localField",
-                          ],
+        // create a lookup aggregation to populate the models
+        pipeline.push({
+          $lookup: {
+            from: _service._model.collection.collectionName,
+            as: [...journey, field].filter(Boolean).join("."),
+            let: {
+              localField:
+                "$" +
+                [...journey, virtual.options.localField]
+                  .filter(Boolean)
+                  .join("."),
+            },
+            pipeline: [
+              {
+                $match: {
+                  $and: [
+                    {
+                      $expr: {
+                        $cond: {
+                          if: { $isArray: "$$localField" },
+                          then: {
+                            $in: [
+                              "$" + virtual.options.foreignField,
+                              "$$localField",
+                            ],
+                          },
+                          else: {
+                            $eq: [
+                              "$" + virtual.options.foreignField,
+                              "$$localField",
+                            ],
+                          },
                         },
                       },
                     },
-                  },
-                  conditions,
-                ],
+                    conditions,
+                  ],
+                },
               },
-            },
-          ],
-        },
-      });
+            ],
+          },
+        });
+
+        // unwind the added fields to nested objects
+        pipeline.push({
+          $unwind: {
+            path: `$${journey.concat(field).join(".")}`,
+            preserveNullAndEmptyArrays: true,
+          },
+        });
+      }
 
       // map journey
       journey.push(field);
-
-      // unwind the added fields to nested objects
-      pipeline.push({
-        $unwind: {
-          path: `$${journey.join(".")}`,
-          preserveNullAndEmptyArrays: true,
-        },
-      });
+      populatedKeys.push(journey.join("."));
     }
   }
 
