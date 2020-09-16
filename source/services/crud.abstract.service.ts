@@ -251,6 +251,9 @@ export abstract class CrudService<ModelType extends IModel> {
       existing: ModelType
     ) => Promise<ModelType>
   ) {
+    // make sure we're not merging a Document
+    payload = (payload as any).toObject?.() ?? payload;
+
     const id = payload._id || payload.id;
     const existing = (await this.findById(id))?.toObject();
     if (!existing) {
@@ -266,7 +269,9 @@ export abstract class CrudService<ModelType extends IModel> {
       _payload = await mergeCallback(_payload, existing);
     }
 
-    await new this._model(_payload).save({ session: options?.session });
+    await this._model.updateOne({ _id: id }, _payload as any, {
+      session: options?.session,
+    });
 
     const updated = await this.findById(id, options);
     return this.onAfterUpdate(_payload, updated, options);

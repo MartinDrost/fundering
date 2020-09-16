@@ -58,8 +58,10 @@ export function deepMerge<Type = Record<string, any>>(
 ): Type {
   for (const [key, value] of Object.entries<any>(changes)) {
     if (
-      (source as any)[key] === null ||
-      (typeof value !== "object" && !Array.isArray(value))
+      [undefined, null].includes((source as any)[key]) ||
+      [undefined, null].includes(value) ||
+      typeof value !== "object" ||
+      Array.isArray(value)
     ) {
       (source as any)[key] = value;
     } else {
