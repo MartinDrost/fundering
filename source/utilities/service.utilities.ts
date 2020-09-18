@@ -234,29 +234,32 @@ export const castConditions = (
 };
 
 export const hydrateList = (cursors: any[], service: CrudService<any>) => {
-  let _service = service;
   const models: any[] = [];
   for (const cursor of cursors) {
-    const virtuals = (_service._model.schema as any).virtuals;
+    if (!cursor._id) {
+      continue;
+    }
+
+    const virtuals = (service._model.schema as any).virtuals;
     for (const field of Object.keys(virtuals)) {
       const virtual = virtuals[field];
       if (!virtual.options.ref || [undefined, null].includes(cursor[field])) {
         continue;
       }
-      if (virtual.options.justOne) {
-        cursor[field] = hydrateList(
-          [cursor[field]],
-          CrudService.serviceMap[virtual?.options?.ref]
-        )[0];
-      } else {
+      if (Array.isArray(cursor[field])) {
         cursor[field] = hydrateList(
           cursor[field],
           CrudService.serviceMap[virtual?.options?.ref]
         );
+      } else {
+        cursor[field] = hydrateList(
+          [cursor[field]],
+          CrudService.serviceMap[virtual?.options?.ref]
+        )[0];
       }
     }
 
-    models.push(_service._model.hydrate(cursor));
+    models.push(service._model.hydrate(cursor));
   }
   return models;
 };
