@@ -2,6 +2,7 @@ import { Document, Model } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
+import { Expression } from "../types/expression.type";
 import {
   castConditions,
   deepMerge,
@@ -77,18 +78,13 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
   ): Promise<(ModelType & Document)[]> {
-    conditions.$and = [
-      ...(conditions.$and ?? []),
-      await this.onBeforeFind(options),
-    ];
-
     // execute the query and convert the results to models
     const cursors = await this.aggregate(conditions, options);
     const models = await Promise.all(
       cursors.map((cursor) => this._model.hydrate(cursor))
     );
 
-    return this.onAfterFind(models, options);
+    return models;
   }
 
   /**
@@ -134,8 +130,15 @@ export abstract class CrudService<ModelType extends IModel> {
    */
   async aggregate(
     conditions: Conditions<ModelType>,
-    options?: IQueryOptions<ModelType>
+    options: IQueryOptions<ModelType> = {}
   ) {
+    // get authorization expressions
+    const expression = await this.onAuthorization(options);
+    options.expression = {
+      ...options.expression,
+      $and: [...(options.expression?.$and ?? []), expression],
+    };
+
     // merge the filter and onBeforeFind options with the $and conditions
     conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
 
@@ -182,6 +185,12 @@ export abstract class CrudService<ModelType extends IModel> {
       this,
       options
     );
+
+    // merge the expressions object with the conditions
+    conditions.$expr = {
+      ...conditions.$expr,
+      $and: [...(conditions.$expr?.$and ?? []), expression],
+    };
 
     pipeline.push({ $match: conditions });
     if (options?.distinct) {
@@ -329,6 +338,23 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
+   * Overridable hook which is called before each find query.
+   *
+   * The returned expression will be used as extra restrictions for searching the
+   * entities. This method is mainly used for defining authorization rules.
+   *
+   * Note that the returned expression is also used during population of relations.
+   *
+   * Reference: https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions
+   * @param options
+   */
+  async onAuthorization(
+    options?: IQueryOptions<ModelType>
+  ): Promise<Expression> {
+    return {};
+  }
+
+  /**
    * Overridable hook with is called before each create.
    *
    * The returned payload is the payload which is used during the create.
@@ -380,35 +406,6 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<void> {
     return;
-  }
-
-  /**
-   * Overridable hook which is called before each find query.
-   *
-   * The returned conditions will be used as extra restrictions for searching the
-   * entities. This method is mainly used for defining authorization rules.
-   *
-   * Note that the returned conditions are also used during population of relations.
-   * @param options
-   */
-  async onBeforeFind(
-    options?: IQueryOptions<ModelType>
-  ): Promise<Conditions<ModelType>> {
-    return {};
-  }
-
-  /**
-   * Overridable hook which is called after each find query.
-   *
-   * The returned model array will be used as the return value of the find method.
-   * @param result
-   * @param options
-   */
-  async onAfterFind(
-    result: (ModelType & Document)[],
-    options?: IQueryOptions<ModelType>
-  ): Promise<(ModelType & Document)[]> {
-    return result;
   }
 
   /**

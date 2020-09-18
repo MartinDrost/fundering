@@ -98,18 +98,20 @@ export const getLookupPipeline = async (
         break;
       }
 
+      // prevent multiple lookups for the same field
       if (!populatedKeys.includes(journey.concat(field).join("."))) {
-        // get any match condition for the related field
-        const conditions = await _service.onBeforeFind(options);
         const fieldPath = [...journey, field].filter(Boolean).join(".");
+
+        // get any authorization expressions for the related field
+        const expression = await _service.onAuthorization(options);
 
         // create a lookup aggregation to populate the models
         pipeline.push({
           $lookup: {
             from: _service._model.collection.collectionName,
             as: fieldPath,
-            let: {},
-            pipeline: [{ $match: conditions }],
+            localField: virtual.options.localField,
+            foreignField: virtual.options.foreignField,
           },
         });
         pipeline.push({
@@ -117,24 +119,7 @@ export const getLookupPipeline = async (
             [fieldPath]: {
               $filter: {
                 input: "$" + fieldPath,
-                as: "item",
-                cond: {
-                  $cond: {
-                    if: { $isArray: "$" + virtual.options.localField },
-                    then: {
-                      $in: [
-                        "$$item." + virtual.options.foreignField,
-                        "$" + virtual.options.localField,
-                      ],
-                    },
-                    else: {
-                      $eq: [
-                        "$$item." + virtual.options.foreignField,
-                        "$" + virtual.options.localField,
-                      ],
-                    },
-                  },
-                },
+                cond: expression,
               },
             },
           },
