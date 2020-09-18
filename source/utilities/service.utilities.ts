@@ -110,7 +110,7 @@ export const getLookupPipeline = async (
           $lookup: {
             from: _service._model.collection.collectionName,
             as: fieldPath,
-            localField: virtual.options.localField,
+            localField: [...journey, virtual.options.localField].join("."),
             foreignField: virtual.options.foreignField,
           },
         });
@@ -228,4 +228,32 @@ export const castConditions = (
   }
 
   return castedConditions;
+};
+
+export const hydrateList = (cursors: any[], service: CrudService<any>) => {
+  let _service = service;
+  const models: any[] = [];
+  for (const cursor of cursors) {
+    const virtuals = (_service._model.schema as any).virtuals;
+    for (const field of Object.keys(virtuals)) {
+      const virtual = virtuals[field];
+      if (!virtual.options.ref || [undefined, null].includes(cursor[field])) {
+        continue;
+      }
+      if (virtual.options.justOne) {
+        cursor[field] = hydrateList(
+          [cursor[field]],
+          CrudService.serviceMap[virtual?.options?.ref]
+        )[0];
+      } else {
+        cursor[field] = hydrateList(
+          cursor[field],
+          CrudService.serviceMap[virtual?.options?.ref]
+        );
+      }
+    }
+
+    models.push(_service._model.hydrate(cursor));
+  }
+  return models;
 };

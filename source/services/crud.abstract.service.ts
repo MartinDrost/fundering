@@ -8,6 +8,7 @@ import {
   deepMerge,
   getDeepKeys,
   getLookupPipeline,
+  hydrateList,
 } from "../utilities/service.utilities";
 
 export abstract class CrudService<ModelType extends IModel> {
@@ -80,11 +81,7 @@ export abstract class CrudService<ModelType extends IModel> {
   ): Promise<(ModelType & Document)[]> {
     // execute the query and convert the results to models
     const cursors = await this.aggregate(conditions, options);
-    const models = await Promise.all(
-      cursors.map((cursor) => this._model.hydrate(cursor))
-    );
-
-    return models;
+    return hydrateList(cursors, this);
   }
 
   /**
@@ -139,7 +136,7 @@ export abstract class CrudService<ModelType extends IModel> {
       $and: [...(options.expression?.$and ?? []), expression],
     };
 
-    // merge the filter and onBeforeFind options with the $and conditions
+    // merge the filter options with the $and conditions
     conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
 
     // cast any eligible fields to their basic types
@@ -232,6 +229,8 @@ export abstract class CrudService<ModelType extends IModel> {
     if (Object.keys(projection).length) {
       pipeline.push({ $project: projection });
     }
+
+    console.log(JSON.stringify(pipeline));
 
     // execute aggregate with the built pipeline and the one provided through options
     return this._model
