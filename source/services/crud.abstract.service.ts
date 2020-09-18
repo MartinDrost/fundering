@@ -224,12 +224,8 @@ export abstract class CrudService<ModelType extends IModel> {
         options.populate = Object.keys((this._model.schema as any).virtuals);
       }
 
-      // only populate keys which haven't occurred in the other pipelines
-      const populateKeys = options.populate.filter((key) =>
-        filterKeys.every((v) => !v.includes(key))
-      );
       pipeline = pipeline.concat(
-        await getLookupPipeline(populateKeys, this, options)
+        await getLookupPipeline(options.populate, this, options)
       );
     }
 
