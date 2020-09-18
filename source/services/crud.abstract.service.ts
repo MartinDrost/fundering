@@ -234,8 +234,6 @@ export abstract class CrudService<ModelType extends IModel> {
       pipeline.push({ $project: projection });
     }
 
-    console.log(JSON.stringify(pipeline));
-
     // execute aggregate with the built pipeline and the one provided through options
     return this._model
       .aggregate(pipeline.concat(options?.pipelines ?? []))
