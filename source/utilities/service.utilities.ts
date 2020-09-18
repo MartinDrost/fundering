@@ -114,16 +114,19 @@ export const getLookupPipeline = async (
             foreignField: virtual.options.foreignField,
           },
         });
-        pipeline.push({
-          $addFields: {
-            [fieldPath]: {
-              $filter: {
-                input: "$" + fieldPath,
-                cond: expression,
+
+        if (Object.keys(expression).length) {
+          pipeline.push({
+            $addFields: {
+              [fieldPath]: {
+                $filter: {
+                  input: "$" + fieldPath,
+                  cond: expression,
+                },
               },
             },
-          },
-        });
+          });
+        }
 
         // unwind the added fields to nested objects
         if (virtual.options.justOne) {

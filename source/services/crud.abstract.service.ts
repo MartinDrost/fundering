@@ -131,10 +131,12 @@ export abstract class CrudService<ModelType extends IModel> {
   ) {
     // get authorization expressions
     const expression = await this.onAuthorization(options);
-    options.expression = {
-      ...options.expression,
-      $and: [...(options.expression?.$and ?? []), expression],
-    };
+    if (Object.keys(expression).length) {
+      options.expression = {
+        ...options.expression,
+        $and: [...(options.expression?.$and ?? []), expression],
+      };
+    }
 
     // merge the filter options with the $and conditions
     conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
@@ -184,10 +186,12 @@ export abstract class CrudService<ModelType extends IModel> {
     );
 
     // merge the expressions object with the conditions
-    conditions.$expr = {
-      ...conditions.$expr,
-      $and: [...(conditions.$expr?.$and ?? []), expression],
-    };
+    if (Object.keys(expression).length) {
+      conditions.$expr = {
+        ...conditions.$expr,
+        $and: [...(conditions.$expr?.$and ?? []), expression],
+      };
+    }
 
     pipeline.push({ $match: conditions });
     if (options?.distinct) {
