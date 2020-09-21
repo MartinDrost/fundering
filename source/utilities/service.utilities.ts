@@ -233,6 +233,11 @@ export const castConditions = (
   return castedConditions;
 };
 
+/**
+ * Recursively hydrates a list of models
+ * @param cursors
+ * @param service
+ */
 export const hydrateList = (cursors: any[], service: CrudService<any>) => {
   const models: any[] = [];
   for (const cursor of cursors) {

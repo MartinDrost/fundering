@@ -218,6 +218,11 @@ export abstract class CrudService<ModelType extends IModel> {
       pipeline.push({ $limit: options.limit });
     }
 
+    // unset virtuals populated for conditions and sorting
+    pipeline.push({
+      $unset: Object.keys((this._model.schema as any).virtuals),
+    });
+
     // concatenate the population pipeline
     if (options?.populate !== undefined) {
       // if an empty populate array has been provided, populate the root
