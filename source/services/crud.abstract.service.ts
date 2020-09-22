@@ -219,9 +219,9 @@ export abstract class CrudService<ModelType extends IModel> {
     }
 
     // unset virtuals populated for conditions and sorting
-    pipeline.push({
-      $unset: Object.keys((this._model.schema as any).virtuals),
-    });
+    // pipeline.push({
+    //   $unset: Object.keys((this._model.schema as any).virtuals),
+    // });
 
     // concatenate the population pipeline
     if (options?.populate !== undefined) {

@@ -18,7 +18,11 @@ export const getDeepKeys = (
   path: string[] = [],
   separator = "."
 ) => {
-  if (object && typeof object === "object") {
+  if (
+    object &&
+    typeof object === "object" &&
+    object instanceof Types.ObjectId === false
+  ) {
     for (const key of Object.keys(object)) {
       // skip empty keys caused by keys ending with '.'
       if (key === undefined) {
@@ -61,7 +65,8 @@ export function deepMerge<Type = Record<string, any>>(
       [undefined, null].includes((source as any)[key]) ||
       [undefined, null].includes(value) ||
       typeof value !== "object" ||
-      Array.isArray(value)
+      Array.isArray(value) ||
+      value instanceof Types.ObjectId
     ) {
       (source as any)[key] = value;
     } else {
