@@ -81,7 +81,7 @@ export function deepMerge<Type = Record<string, any>>(
  * Builds and returns a lookup pipeline to aggregate virtuals
  * @param keys
  */
-export const getLookupPipeline = async (
+export const getShallowLookupPipeline = async (
   keys: string[],
   service: CrudService<any>,
   options?: IQueryOptions
@@ -151,6 +151,90 @@ export const getLookupPipeline = async (
   }
 
   return pipeline;
+};
+
+/**
+ * Builds and returns a lookup pipeline to aggregate virtuals
+ * @param keys
+ */
+export const getDeepLookupPipeline = async (
+  keys: string[],
+  service: CrudService<any>,
+  options?: IQueryOptions
+): Promise<Conditions[]> => {
+  const keyStructure: Record<string, any> = {};
+  for (const key of Array.from(new Set(keys))) {
+    const cleanKey = key
+      .split(".")
+      .filter((field) => !field.includes("$") && isNaN(+field));
+
+    let reference = keyStructure;
+    for (const field of cleanKey) {
+      reference[field] = reference[field] ?? {};
+      reference = reference[field];
+    }
+  }
+
+  const recursion = async (
+    structure: typeof keyStructure,
+    service: CrudService<any>
+  ) => {
+    const pipeline: Conditions[] = [];
+    for (const [key, children] of Object.entries(structure)) {
+      let _service = service;
+      // move to the next service based on the path's virtual
+      const virtual = (_service._model.schema as any).virtuals[key];
+      _service = CrudService.serviceMap[virtual?.options?.ref];
+      if (!_service) {
+        continue;
+      }
+
+      // get any authorization expressions for the related field
+      const expression = await _service.onAuthorization(options);
+
+      // create a lookup aggregation to populate the models
+      pipeline.push({
+        $lookup: {
+          from: _service._model.collection.collectionName,
+          as: key,
+          let: { localField: "$" + virtual.options.localField },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $cond: {
+                    if: { $isArray: "$$localField" },
+                    then: {
+                      $in: ["$" + virtual.options.foreignField, "$$localField"],
+                    },
+                    else: {
+                      $eq: ["$" + virtual.options.foreignField, "$$localField"],
+                    },
+                  },
+                  ...expression,
+                },
+              },
+            },
+            ...(await recursion(children, _service)),
+          ],
+        },
+      });
+
+      // unwind the added fields to nested objects
+      if (virtual.options.justOne) {
+        pipeline.push({
+          $unwind: {
+            path: "$" + key,
+            preserveNullAndEmptyArrays: true,
+          },
+        });
+      }
+    }
+
+    return pipeline;
+  };
+
+  return recursion(keyStructure, service);
 };
 
 /**

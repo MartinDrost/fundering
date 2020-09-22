@@ -7,7 +7,8 @@ import {
   castConditions,
   deepMerge,
   getDeepKeys,
-  getLookupPipeline,
+  getDeepLookupPipeline,
+  getShallowLookupPipeline,
   hydrateList,
 } from "../utilities/service.utilities";
 
@@ -179,7 +180,7 @@ export abstract class CrudService<ModelType extends IModel> {
       Object.keys(sort),
       Object.keys(projection)
     );
-    let pipeline: Record<string, any>[] = await getLookupPipeline(
+    let pipeline: Record<string, any>[] = await getShallowLookupPipeline(
       filterKeys,
       this,
       options
@@ -231,7 +232,7 @@ export abstract class CrudService<ModelType extends IModel> {
       }
 
       pipeline = pipeline.concat(
-        await getLookupPipeline(options.populate, this, options)
+        await getDeepLookupPipeline(options.populate, this, options)
       );
     }
 
