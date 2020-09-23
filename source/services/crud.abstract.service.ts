@@ -219,9 +219,15 @@ export abstract class CrudService<ModelType extends IModel> {
     }
 
     // unset virtuals populated for conditions and sorting
-    // pipeline.push({
-    //   $unset: Object.keys((this._model.schema as any).virtuals),
-    // });
+    pipeline.push({
+      $project: Object.keys((this._model.schema as any).virtuals).reduce(
+        (prev, curr) => {
+          prev[curr] = 0;
+          return prev;
+        },
+        {}
+      ),
+    });
 
     if (Object.keys(projection).length) {
       pipeline.push({ $project: projection });

@@ -217,7 +217,7 @@ export const getPopulateOptions = async (
       const match = Object.keys($expr).length ? { $expr } : undefined;
       populate.push({
         path: key,
-        select: Object.keys(selectStructure[key]).join(" "),
+        select: Object.keys(selectStructure[key] || {}).join(" "),
         match,
         populate: await recursion(
           children,
