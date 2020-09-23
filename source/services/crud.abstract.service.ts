@@ -243,43 +243,89 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
+   * Update a single model based its the (_)id field
+   * @param payload
+   * @param options
+   */
+  async updateModel(payload: ModelType, options?: IQueryOptions<ModelType>) {
+    const updated = await this.update(
+      { _id: payload._id || payload.id },
+      payload,
+      options
+    );
+    if (!updated[0]) {
+      throw new Error("No model found with the provided id");
+    }
+    return updated[0];
+  }
+
+  /**
    * Overwrite an entity with the provided payload.
    * @param payload
    * @param options
    * @param mergeCallback
    */
   async update(
+    conditions: Conditions,
     payload: ModelType,
     options?: IQueryOptions<ModelType>,
     mergeCallback?: (
       payload: Partial<ModelType>,
       existing: ModelType
     ) => Promise<ModelType>
-  ) {
+  ): Promise<(ModelType & Document)[]> {
     // make sure we're not merging a Document
     payload = (payload as any).toObject?.() ?? payload;
 
-    const id = payload._id || payload.id;
-    const existing = (await this.findById(id))?.toObject();
-    if (!existing) {
+    const existingModels = await this.find(conditions);
+    return Promise.all(
+      existingModels.map(async (existing) => {
+        let _payload = (await this.onBeforeUpdate(
+          payload,
+          existing,
+          options
+        )) as ModelType;
+
+        let document: ModelType & Document = this._model.hydrate(_payload);
+        if (mergeCallback) {
+          document = (await mergeCallback(_payload, existing)) as any;
+        } else {
+          // mark changed paths as modified
+          for (const field of Object.keys(_payload)) {
+            if (_payload[field] !== existing[field]) {
+              document.markModified(field);
+            }
+          }
+        }
+
+        const saved = await document.save({ session: options?.session });
+        return this.onAfterUpdate(
+          await this.findById(saved._id, options),
+          saved,
+          options
+        );
+      })
+    );
+  }
+
+  /**
+   * Merge a single model based its the (_)id field
+   * @param payload
+   * @param options
+   */
+  async mergeModel(
+    payload: Partial<ModelType>,
+    options?: IQueryOptions<ModelType>
+  ) {
+    const updated = await this.merge(
+      { _id: payload._id || payload.id },
+      payload,
+      options
+    );
+    if (!updated[0]) {
       throw new Error("No model found with the provided id");
     }
-
-    let _payload = (await this.onBeforeUpdate(
-      payload,
-      existing,
-      options
-    )) as ModelType;
-    if (mergeCallback) {
-      _payload = await mergeCallback(_payload, existing);
-    }
-
-    await this._model.updateOne({ _id: id }, _payload as any, {
-      session: options?.session,
-    });
-
-    const updated = await this.findById(id, options);
-    return this.onAfterUpdate(_payload, updated, options);
+    return updated[0];
   }
 
   /**
@@ -287,8 +333,13 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param payload
    * @param options
    */
-  merge(payload: Partial<ModelType>, options?: IQueryOptions<ModelType>) {
+  merge(
+    conditions: Conditions,
+    payload: Partial<ModelType>,
+    options?: IQueryOptions<ModelType>
+  ) {
     return this.update(
+      conditions,
       payload as ModelType,
       options,
       async (payload, existing) => deepMerge<ModelType>(existing, payload)
