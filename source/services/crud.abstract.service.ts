@@ -280,8 +280,12 @@ export abstract class CrudService<ModelType extends IModel> {
     const existingModels = await this.find(conditions);
     return Promise.all(
       existingModels.map(async (existing) => {
-        let _payload = (await this.onBeforeUpdate(
-          payload,
+        const _payload = (await this.onBeforeUpdate(
+          {
+            ...payload,
+            _id: existing._id,
+            id: existing.id,
+          },
           existing,
           options
         )) as ModelType;
