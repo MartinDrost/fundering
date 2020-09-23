@@ -7,7 +7,6 @@ import {
   castConditions,
   deepMerge,
   getDeepKeys,
-  getDeepLookupPipeline,
   getShallowLookupPipeline,
   hydrateList,
 } from "../utilities/service.utilities";
@@ -82,7 +81,7 @@ export abstract class CrudService<ModelType extends IModel> {
   ): Promise<(ModelType & Document)[]> {
     // execute the query and convert the results to models
     const cursors = await this.aggregate(conditions, options);
-    return hydrateList(cursors, this);
+    return hydrateList(cursors, this, options);
   }
 
   /**
@@ -223,18 +222,6 @@ export abstract class CrudService<ModelType extends IModel> {
     // pipeline.push({
     //   $unset: Object.keys((this._model.schema as any).virtuals),
     // });
-
-    // concatenate the population pipeline
-    if (options?.populate !== undefined) {
-      // if an empty populate array has been provided, populate the root
-      if (options.populate.length === 0) {
-        options.populate = Object.keys((this._model.schema as any).virtuals);
-      }
-
-      pipeline = pipeline.concat(
-        await getDeepLookupPipeline(options.populate, this, options)
-      );
-    }
 
     if (Object.keys(projection).length) {
       pipeline.push({ $project: projection });

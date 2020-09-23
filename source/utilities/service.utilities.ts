@@ -1,4 +1,4 @@
-import { isValidObjectId, Types } from "mongoose";
+import { isValidObjectId, ModelPopulateOptions, Types } from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { CrudService } from "../services/crud.abstract.service";
@@ -154,33 +154,56 @@ export const getShallowLookupPipeline = async (
 };
 
 /**
- * Builds and returns a lookup pipeline to aggregate virtuals
+ * Builds and returns Mongoose population options
  * @param keys
  */
-export const getDeepLookupPipeline = async (
-  keys: string[],
+export const getPopulateOptions = async (
   service: CrudService<any>,
-  options?: IQueryOptions
-): Promise<Conditions[]> => {
-  const keyStructure: Record<string, any> = {};
-  for (const key of Array.from(new Set(keys))) {
+  options: IQueryOptions
+): Promise<ModelPopulateOptions[]> => {
+  // if an empty populate array has been provided, populate the root
+  if (options.populate?.length === 0) {
+    options.populate = Object.keys((service._model.schema as any).virtuals);
+  }
+
+  // build a population structure based on the separated paths
+  const populateStructure: Record<string, any> = {};
+  for (const key of Array.from(new Set(options.populate))) {
     const cleanKey = key
       .split(".")
       .filter((field) => !field.includes("$") && isNaN(+field));
 
-    let reference = keyStructure;
+    let reference = populateStructure;
     for (const field of cleanKey) {
       reference[field] = reference[field] ?? {};
       reference = reference[field];
     }
   }
 
+  // build a select structure to project populated data
+  const selectStructure: Record<string, any> = {};
+  for (const key of Array.from(new Set(options.select))) {
+    const splitKey = key.split(".");
+    let reference = selectStructure;
+    for (const field of splitKey) {
+      reference[field] = reference[field] ?? {};
+      reference = reference[field];
+    }
+  }
+
+  /**
+   * Build population options recursively
+   * @param populateStructure
+   * @param selectStructure
+   * @param service
+   */
   const recursion = async (
-    structure: typeof keyStructure,
+    populateStructure: Record<string, any>,
+    selectStructure: Record<string, any>,
     service: CrudService<any>
   ) => {
-    const pipeline: Conditions[] = [];
-    for (const [key, children] of Object.entries(structure)) {
+    const populate: ModelPopulateOptions[] = [];
+    for (const [key, children] of Object.entries(populateStructure)) {
       let _service = service;
       // move to the next service based on the path's virtual
       const virtual = (_service._model.schema as any).virtuals[key];
@@ -190,51 +213,24 @@ export const getDeepLookupPipeline = async (
       }
 
       // get any authorization expressions for the related field
-      const expression = await _service.onAuthorization(options);
-
-      // create a lookup aggregation to populate the models
-      pipeline.push({
-        $lookup: {
-          from: _service._model.collection.collectionName,
-          as: key,
-          let: { localField: "$" + virtual.options.localField },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $cond: {
-                    if: { $isArray: "$$localField" },
-                    then: {
-                      $in: ["$" + virtual.options.foreignField, "$$localField"],
-                    },
-                    else: {
-                      $eq: ["$" + virtual.options.foreignField, "$$localField"],
-                    },
-                  },
-                  ...expression,
-                },
-              },
-            },
-            ...(await recursion(children, _service)),
-          ],
-        },
+      const $expr = await _service.onAuthorization(options);
+      const match = Object.keys($expr).length ? { $expr } : undefined;
+      populate.push({
+        path: key,
+        select: Object.keys(selectStructure[key]).join(" "),
+        match,
+        populate: await recursion(
+          children,
+          selectStructure[key] || {},
+          _service
+        ),
       });
-
-      // unwind the added fields to nested objects
-      if (virtual.options.justOne) {
-        pipeline.push({
-          $unwind: {
-            path: "$" + key,
-            preserveNullAndEmptyArrays: true,
-          },
-        });
-      }
     }
 
-    return pipeline;
+    return populate;
   };
 
-  return recursion(keyStructure, service);
+  return recursion(populateStructure, selectStructure, service);
 };
 
 /**
@@ -327,7 +323,17 @@ export const castConditions = (
  * @param cursors
  * @param service
  */
-export const hydrateList = (cursors: any[], service: CrudService<any>) => {
+export const hydrateList = async (
+  cursors: any[],
+  service: CrudService<any>,
+  options?: IQueryOptions
+) => {
+  // concatenate the population pipeline
+  let populateOptions: ModelPopulateOptions[] = [];
+  if (options?.populate !== undefined) {
+    populateOptions = await getPopulateOptions(service, options);
+  }
+
   const models: any[] = [];
   for (const cursor of cursors) {
     if (!cursor._id) {
@@ -353,7 +359,9 @@ export const hydrateList = (cursors: any[], service: CrudService<any>) => {
       }
     }
 
-    models.push(service._model.hydrate(cursor));
+    models.push(
+      service._model.hydrate(cursor).populate(populateOptions).execPopulate()
+    );
   }
-  return models;
+  return Promise.all(models);
 };
