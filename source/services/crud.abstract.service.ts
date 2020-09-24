@@ -138,15 +138,6 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options: IQueryOptions<ModelType> = {}
   ) {
-    // get authorization expressions
-    const expression = await this.onAuthorization(options);
-    if (Object.keys(expression).length) {
-      options.expression = {
-        ...options.expression,
-        $and: [...(options.expression?.$and ?? []), expression],
-      };
-    }
-
     // merge the filter options with the $and conditions
     conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
 
@@ -184,23 +175,22 @@ export abstract class CrudService<ModelType extends IModel> {
     });
 
     // build the aggregation pipeline
+    let pipeline: Record<string, any>[] = [];
+
+    // add a match stage for the authorization expression
+    const authorization = await this.onAuthorization(options);
+    if (Object.keys(authorization).length) {
+      pipeline.push({ $match: { $expr: authorization } });
+    }
+
+    // add a shallow lookup stage for matching, sorting and projection
     const filterKeys = getDeepKeys(conditions).concat(
       Object.keys(sort),
       Object.keys(projection)
     );
-    let pipeline: Record<string, any>[] = await getShallowLookupPipeline(
-      filterKeys,
-      this,
-      options
+    pipeline = pipeline.concat(
+      await getShallowLookupPipeline(filterKeys, this, options)
     );
-
-    // merge the expressions object with the conditions
-    if (Object.keys(expression).length) {
-      conditions.$expr = {
-        ...conditions.$expr,
-        $and: [...(conditions.$expr?.$and ?? []), expression],
-      };
-    }
 
     pipeline.push({ $match: conditions });
     if (options?.distinct) {
