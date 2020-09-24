@@ -331,6 +331,9 @@ export const hydrateList = async (
 ) => {
   // start timeout timer
   const startTime = Date.now();
+  if (allowedTime <= 0) {
+    throw new Error("Schema hydration timed out");
+  }
 
   // concatenate the population pipeline
   let populateOptions: ModelPopulateOptions[] = [];
