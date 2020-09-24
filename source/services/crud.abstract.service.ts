@@ -11,6 +11,7 @@ import {
   hydrateList,
 } from "../utilities/service.utilities";
 
+const defaultMaxTime = 10000;
 export abstract class CrudService<ModelType extends IModel> {
   /**
    * A record mapping model names to their respective services.
@@ -79,9 +80,17 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
   ): Promise<(ModelType & Document)[]> {
+    // log time to calculate the time remaining for hydration
+    const startTime = Date.now();
+
     // execute the query and convert the results to models
     const cursors = await this.aggregate(conditions, options);
-    return hydrateList(cursors, this, options);
+    return hydrateList(
+      cursors,
+      this,
+      (options?.maxTimeMS ?? defaultMaxTime) - (Date.now() - startTime),
+      options
+    );
   }
 
   /**
@@ -238,7 +247,7 @@ export abstract class CrudService<ModelType extends IModel> {
       .aggregate(pipeline.concat(options?.pipelines ?? []))
       .option({
         session: options?.session,
-        maxTimeMS: options?.maxTimeMS ?? 10000,
+        maxTimeMS: options?.maxTimeMS ?? defaultMaxTime,
       });
   }
 

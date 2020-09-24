@@ -326,8 +326,12 @@ export const castConditions = (
 export const hydrateList = async (
   cursors: any[],
   service: CrudService<any>,
+  allowedTime: number,
   options?: IQueryOptions
 ) => {
+  // start timeout timer
+  const startTime = Date.now();
+
   // concatenate the population pipeline
   let populateOptions: ModelPopulateOptions[] = [];
   if (options?.populate !== undefined) {
@@ -349,19 +353,33 @@ export const hydrateList = async (
       if (Array.isArray(cursor[field])) {
         cursor[field] = hydrateList(
           cursor[field],
-          CrudService.serviceMap[virtual?.options?.ref]
+          CrudService.serviceMap[virtual?.options?.ref],
+          allowedTime - (Date.now() - startTime)
         );
       } else {
         cursor[field] = hydrateList(
           [cursor[field]],
-          CrudService.serviceMap[virtual?.options?.ref]
+          CrudService.serviceMap[virtual?.options?.ref],
+          allowedTime - (Date.now() - startTime)
         )[0];
       }
     }
 
     models.push(
-      service._model.hydrate(cursor).populate(populateOptions).execPopulate()
+      await new Promise((resolve, reject) => {
+        service._model
+          .hydrate(cursor)
+          .populate(populateOptions, (error, result) => {
+            if (error) {
+              reject(error);
+            } else if (Date.now() - startTime > allowedTime) {
+              reject("Schema population timed out");
+            } else {
+              resolve(result);
+            }
+          });
+      })
     );
   }
-  return Promise.all(models);
+  return models;
 };
