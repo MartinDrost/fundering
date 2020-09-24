@@ -304,8 +304,8 @@ export abstract class CrudService<ModelType extends IModel> {
 
         const saved = await document.save({ session: options?.session });
         return this.onAfterUpdate(
+          _payload,
           await this.findById(saved._id, options),
-          saved,
           options
         );
       })
