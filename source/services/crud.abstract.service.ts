@@ -293,8 +293,9 @@ export abstract class CrudService<ModelType extends IModel> {
         if (mergeCallback) {
           document = (await mergeCallback(_payload, existing)) as any;
         } else {
-          // mark changed paths as modified
-          for (const field of Object.keys(_payload)) {
+          // mark changed paths as modified and define undefined values
+          for (const field of Object.keys(this._model.schema.paths)) {
+            _payload[field] = _payload[field] ?? null;
             if (_payload[field] !== existing[field]) {
               document.markModified(field);
             }
