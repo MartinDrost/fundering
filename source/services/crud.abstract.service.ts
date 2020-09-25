@@ -183,11 +183,8 @@ export abstract class CrudService<ModelType extends IModel> {
       pipeline.push({ $match: { $expr: authorization } });
     }
 
-    // add a shallow lookup stage for matching, sorting and projection
-    const filterKeys = getDeepKeys(conditions).concat(
-      Object.keys(sort),
-      Object.keys(projection)
-    );
+    // add a shallow lookup stage for matching, sorting
+    const filterKeys = getDeepKeys(conditions).concat(Object.keys(sort));
     pipeline = pipeline.concat(
       await getShallowLookupPipeline(filterKeys, this, options)
     );
