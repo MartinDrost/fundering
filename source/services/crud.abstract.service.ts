@@ -281,6 +281,7 @@ export abstract class CrudService<ModelType extends IModel> {
             ...payload,
             _id: existing._id,
             id: existing.id,
+            __v: undefined,
           },
           existing,
           options
@@ -297,6 +298,9 @@ export abstract class CrudService<ModelType extends IModel> {
               document.markModified(field);
             }
           }
+
+          // marking the version number causes conflicts
+          document.unmarkModified("__v");
         }
 
         const saved = await document.save({ session: options?.session });
