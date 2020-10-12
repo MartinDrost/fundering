@@ -235,7 +235,8 @@ export abstract class CrudService<ModelType extends IModel> {
       .option({
         session: options?.session,
         maxTimeMS: options?.maxTimeMS ?? defaultMaxTime,
-      });
+      })
+      .exec();
   }
 
   /**
