@@ -242,8 +242,17 @@ export const castConditions = (
   conditions: Conditions,
   service: CrudService<any>
 ): Conditions => {
+  // get the keys of the object
   let keys = getDeepKeys(conditions, [], [], "|");
-  keys = keys.filter((key) => keys.filter((v) => v.includes(key)).length === 1);
+
+  // filter out shortened versions of extended paths so we pass keys just once
+  keys = keys.filter(
+    (key) =>
+      keys.filter(
+        (v) =>
+          v.startsWith(key) && v.split("|").length !== key.split("|").length
+      ).length === 0
+  );
 
   const castedConditions = { ...conditions };
   for (const key of keys) {

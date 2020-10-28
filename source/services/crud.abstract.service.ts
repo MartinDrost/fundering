@@ -138,6 +138,9 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options: IQueryOptions<ModelType> = {}
   ) {
+    // clone the conditions object
+    conditions = { ...conditions };
+
     // merge the filter options with the $and conditions
     conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
 
