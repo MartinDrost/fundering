@@ -1,4 +1,4 @@
-import { Document, Model } from "mongoose";
+import { Aggregate, Document, Model } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -84,7 +84,7 @@ export abstract class CrudService<ModelType extends IModel> {
     const startTime = Date.now();
 
     // execute the query and convert the results to models
-    const cursors = await this.aggregate(conditions, options);
+    const cursors = await this.query(conditions, options);
     return hydrateList(
       cursors,
       this,
@@ -122,10 +122,19 @@ export abstract class CrudService<ModelType extends IModel> {
 
     await this.onBeforeCount(_options);
     const result: number =
-      (await this.aggregate(conditions, _options))[0]?.count ?? 0;
+      (await this.query(conditions, _options))[0]?.count ?? 0;
     await this.onAfterCount(result, _options);
 
     return result;
+  }
+
+  /**
+   * Perform a mongodb aggregate query.
+   * Merely a placeholder to work consistently through Fundering.
+   * @param aggregations
+   */
+  aggregate(aggregations?: any | undefined): Aggregate<any[]> {
+    return this._model.aggregate(aggregations);
   }
 
   /**
@@ -134,7 +143,7 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param conditions
    * @param options
    */
-  async aggregate(
+  async query(
     conditions: Conditions<ModelType>,
     options: IQueryOptions<ModelType> = {}
   ) {
@@ -243,12 +252,38 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
+   * Perform a mongodb updateOne query.
+   * Merely a placeholder to work consistently through Fundering.
+   * @param conditions
+   * @param updateQuery
+   */
+  async updateOne(
+    conditions: Conditions,
+    updateQuery: Conditions
+  ): Promise<any> {
+    return this._model.updateOne(conditions as any, updateQuery as any).exec();
+  }
+
+  /**
+   * Perform a mongodb updateMany query.
+   * Merely a placeholder to work consistently through Fundering.
+   * @param conditions
+   * @param updateQuery
+   */
+  async updateMany(
+    conditions: Conditions,
+    updateQuery: Conditions
+  ): Promise<any> {
+    return this._model.updateMany(conditions as any, updateQuery as any).exec();
+  }
+
+  /**
    * Update a single model based its the (_)id field
    * @param payload
    * @param options
    */
-  async updateModel(payload: ModelType, options?: IQueryOptions<ModelType>) {
-    const updated = await this.update(
+  async replaceModel(payload: ModelType, options?: IQueryOptions<ModelType>) {
+    const updated = await this.replace(
       { _id: payload._id || payload.id },
       payload,
       options
@@ -260,12 +295,12 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Overwrite an entity with the provided payload.
+   * Overwrite entities with the provided payload.
    * @param payload
    * @param options
    * @param mergeCallback
    */
-  async update(
+  async replace(
     conditions: Conditions,
     payload: ModelType,
     options?: IQueryOptions<ModelType>,
@@ -339,7 +374,7 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Merge an existing entity's fields with the provided payload.
+   * Merge existing entities' fields with the provided payload.
    * @param payload
    * @param options
    */
@@ -348,7 +383,7 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: Partial<ModelType>,
     options?: IQueryOptions<ModelType>
   ) {
-    return this.update(
+    return this.replace(
       conditions,
       payload as ModelType,
       options,
