@@ -1,4 +1,4 @@
-import { Aggregate, Document, Model } from "mongoose";
+import { Aggregate, Document, Model, ModelUpdateOptions } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -134,7 +134,7 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param aggregations
    */
   aggregate(aggregations?: any | undefined): Aggregate<any[]> {
-    return this._model.aggregate(aggregations);
+    return this._model.aggregate(aggregations).exec();
   }
 
   /**
@@ -257,11 +257,14 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param conditions
    * @param updateQuery
    */
-  async updateOne(
+  updateOne(
     conditions: Conditions,
-    updateQuery: Conditions
+    updateQuery: Conditions,
+    updateOptions: ModelUpdateOptions = {}
   ): Promise<any> {
-    return this._model.updateOne(conditions as any, updateQuery as any).exec();
+    return this._model
+      .updateOne(conditions as any, updateQuery as any, updateOptions)
+      .exec();
   }
 
   /**
@@ -270,11 +273,14 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param conditions
    * @param updateQuery
    */
-  async updateMany(
+  updateMany(
     conditions: Conditions,
-    updateQuery: Conditions
+    updateQuery: Conditions,
+    updateOptions: ModelUpdateOptions = {}
   ): Promise<any> {
-    return this._model.updateMany(conditions as any, updateQuery as any).exec();
+    return this._model
+      .updateMany(conditions as any, updateQuery as any, updateOptions)
+      .exec();
   }
 
   /**
@@ -501,9 +507,9 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Overridable hook which is called before each update/merge.
+   * Overridable hook which is called before each replace/merge.
    *
-   * The returned payload will be used as input for the update/merge method.
+   * The returned payload will be used as input for the replace/merge method.
    * @param payload
    * @param existing
    * @param options
@@ -517,9 +523,9 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Overridable hook which is called after each update/merge.
+   * Overridable hook which is called after each replace/merge.
    *
-   * The returned model will be used as the return value of the update/merge method.
+   * The returned model will be used as the return value of the replace/merge method.
    * @param payload
    * @param updated
    * @param options
