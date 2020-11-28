@@ -1,4 +1,10 @@
-import { Aggregate, Document, Model, ModelUpdateOptions } from "mongoose";
+import {
+  Aggregate,
+  Document,
+  Model,
+  ModelUpdateOptions,
+  Schema,
+} from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -20,6 +26,32 @@ export abstract class CrudService<ModelType extends IModel> {
 
   constructor(public _model: Model<ModelType & Document>) {
     CrudService.serviceMap[_model.modelName] = this;
+
+    // create the pre and post save hooks
+    // TODO: move pre/post methods as optional to interface and only fetch existing models when the method is present
+    const service = this;
+    const schema = new Schema();
+    schema.pre("save", async function (this: ModelType & Document) {
+      await service.preSave(this, this.$locals.options);
+    });
+    schema.post("save", async function (this: ModelType & Document) {
+      await service.postSave(this, this.$locals.options);
+    });
+    schema.pre(
+      "deleteOne",
+      { query: false, document: true } as any,
+      async function (this: ModelType & Document) {
+        await service.preDelete(this, this.$locals.options);
+      }
+    );
+    schema.post(
+      "deleteOne",
+      { query: false, document: true },
+      async function (this: ModelType & Document) {
+        await service.postDelete(this, this.$locals.options);
+      }
+    );
+    require("mongoose/lib/helpers/model/applyHooks")(_model, schema);
   }
 
   /**
@@ -27,14 +59,8 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param payload
    * @param options
    */
-  async create(payload: ModelType, options?: IQueryOptions<ModelType>) {
-    const _payload = await this.onBeforeCreate(payload, options);
-    const { _id, id } = await new this._model(_payload).save({
-      session: options?.session,
-    });
-    const created = await this.findById(_id || id, options);
-
-    return this.onAfterCreate(_payload, created, options);
+  create(payload: ModelType, options?: IQueryOptions<ModelType>) {
+    return new this._model(payload).save({ session: options?.session });
   }
 
   /**
@@ -120,10 +146,9 @@ export abstract class CrudService<ModelType extends IModel> {
       random: undefined,
     };
 
-    await this.onBeforeCount(_options);
     const result: number =
       (await this.query(conditions, _options))[0]?.count ?? 0;
-    await this.onAfterCount(result, _options);
+    await this.postCount(result, _options);
 
     return result;
   }
@@ -321,16 +346,12 @@ export abstract class CrudService<ModelType extends IModel> {
     const existingModels = await this.find(conditions);
     return Promise.all(
       existingModels.map(async (existing) => {
-        const _payload = (await this.onBeforeUpdate(
-          {
-            ...payload,
-            _id: existing._id,
-            id: existing.id,
-            __v: undefined,
-          },
-          existing,
-          options
-        )) as ModelType;
+        const _payload = {
+          ...payload,
+          _id: existing._id,
+          id: existing.id,
+          __v: undefined,
+        };
 
         let document: ModelType & Document = this._model.hydrate(_payload);
         if (mergeCallback) {
@@ -349,12 +370,7 @@ export abstract class CrudService<ModelType extends IModel> {
         document.unmarkModified("__v");
         delete document.__v;
 
-        const saved = await document.save({ session: options?.session });
-        return this.onAfterUpdate(
-          _payload,
-          await this.findById(saved._id, options),
-          options
-        );
+        return document.save({ session: options?.session });
       })
     );
   }
@@ -417,19 +433,7 @@ export abstract class CrudService<ModelType extends IModel> {
   ) {
     const selection = await this.find(conditions, options);
     for (const existing of selection) {
-      if (!existing) {
-        continue;
-      }
-
-      await this.onBeforeDelete(existing, options);
-      await this._model
-        .deleteOne(
-          { _id: existing._id || existing.id },
-          { session: options?.session }
-        )
-        .exec();
-
-      await this.onAfterDelete(existing, options);
+      await existing.deleteOne({ session: options?.session } as any);
     }
 
     return selection;
@@ -453,58 +457,16 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Overridable hook with is called before each create.
-   *
-   * The returned payload is the payload which is used during the create.
-   * @param payload
-   * @param options
-   */
-  async onBeforeCreate(
-    payload: ModelType,
-    options?: IQueryOptions<ModelType>
-  ): Promise<ModelType> {
-    return payload;
-  }
-
-  /**
-   * Overridable hook which is called after each create.
-   *
-   * The returned object will be used as the return value of the create() method.
-   * @param payload
-   * @param created
-   * @param options
-   */
-  async onAfterCreate(
-    payload: ModelType,
-    created: ModelType & Document,
-    options?: IQueryOptions<ModelType>
-  ): Promise<ModelType & Document> {
-    return created;
-  }
-
-  /**
-   * Overridable hook which is called before each count query.
-   *
-   * The method exists mainly for analytical purposes.
-   * @param options
-   */
-  async onBeforeCount(options?: IQueryOptions<ModelType>): Promise<void> {
-    return;
-  }
-
-  /**
    * Overridable hook which is called after each count query.
    *
    * The method exists mainly for analytical purposes.
    * @param resultCount
    * @param options
    */
-  async onAfterCount(
+  async postCount(
     resultCount: number,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {
-    return;
-  }
+  ): Promise<void> {}
 
   /**
    * Overridable hook which is called before each replace/merge.
@@ -514,9 +476,8 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param existing
    * @param options
    */
-  async onBeforeUpdate(
+  async preSave(
     payload: Partial<ModelType>,
-    existing: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Partial<ModelType>> {
     return payload;
@@ -524,41 +485,32 @@ export abstract class CrudService<ModelType extends IModel> {
 
   /**
    * Overridable hook which is called after each replace/merge.
-   *
-   * The returned model will be used as the return value of the replace/merge method.
    * @param payload
    * @param updated
    * @param options
    */
-  async onAfterUpdate(
-    payload: Partial<ModelType>,
-    updated: ModelType & Document,
+  async postSave(
+    model: ModelType & Document,
     options?: IQueryOptions<ModelType>
-  ): Promise<ModelType & Document> {
-    return updated;
-  }
+  ): Promise<void> {}
 
   /**
    * Overridable hook which is called before each delete.
    * @param existing
    * @param options
    */
-  async onBeforeDelete(
+  async preDelete(
     existing: ModelType,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {
-    return;
-  }
+  ): Promise<void> {}
 
   /**
    * Overridable hook which is called after each delete
    * @param deleted
    * @param options
    */
-  async onAfterDelete(
+  async postDelete(
     deleted: ModelType & Document,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {
-    return;
-  }
+  ): Promise<void> {}
 }
