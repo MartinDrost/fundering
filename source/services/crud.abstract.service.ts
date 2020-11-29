@@ -3,7 +3,6 @@ import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
 import { Document } from "../types/document.interface";
-import { Expression } from "../types/expression.type";
 import {
   castConditions,
   deepMerge,
@@ -26,10 +25,10 @@ export abstract class CrudService<ModelType extends IModel> {
     const service = this;
     const schema = new Schema();
     schema.pre("save", async function (this: Document<ModelType>) {
-      await service.preSave?.(this, this.$locals.options);
+      await service.getHook("preSave")?.(this, this.$locals.options);
 
       // store the old state if the service has a postSave hook defined
-      if (this._id && service.postSave) {
+      if (this._id && service.getHook("postSave")) {
         this.$locals._prevState = await service.findById(this._id);
       }
     });
@@ -38,20 +37,24 @@ export abstract class CrudService<ModelType extends IModel> {
       const prevState = this.$locals._prevState;
       delete this.$locals._prevState;
 
-      await service.postSave?.(this, prevState, this.$locals.options);
+      await service.getHook("postSave")?.(
+        this,
+        prevState,
+        this.$locals.options
+      );
     });
     schema.pre(
       "deleteOne",
       { query: false, document: true } as any,
       async function (this: Document<ModelType>) {
-        await service.preDelete?.(this, this.$locals.options);
+        await service.getHook("preDelete")?.(this, this.$locals.options);
       }
     );
     schema.post(
       "deleteOne",
       { query: false, document: true },
       async function (this: Document<ModelType>) {
-        await service.postDelete?.(this, this.$locals.options);
+        await service.getHook("postDelete")?.(this, this.$locals.options);
       }
     );
     require("mongoose/lib/helpers/model/applyHooks")(_model, schema);
@@ -151,7 +154,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     const result: number =
       (await this.query(conditions, _options))[0]?.count ?? 0;
-    await this.postCount?.(result, _options);
+    await this.getHook("postCount")?.(result, _options);
 
     return result;
   }
@@ -218,7 +221,8 @@ export abstract class CrudService<ModelType extends IModel> {
     let pipeline: Record<string, any>[] = [];
 
     // add a match stage for the authorization expression
-    const authorization = (await this.onAuthorization?.(options)) ?? {};
+    const authorization =
+      (await this.getHook("onAuthorization")?.(options)) ?? {};
     if (Object.keys(authorization).length) {
       pipeline.push({ $match: { $expr: authorization } });
     }
@@ -443,73 +447,18 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Overridable hook which is called before each find query.
-   *
-   * The returned expression will be used as extra restrictions for searching the
-   * entities. This method is mainly used for defining authorization rules.
-   *
-   * Note that the returned expression is also used during population of relations.
-   *
-   * Reference: https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions
-   * @param options
+   * Gets the corresponding registered hook method if defined.
+   * @param hook
    */
-  onAuthorization?: (options?: IQueryOptions<ModelType>) => Promise<Expression>;
-
-  /**
-   * Overridable hook which is called after each count query.
-   *
-   * The method exists mainly for analytical purposes.
-   * @param resultCount
-   * @param options
-   */
-  postCount?: (
-    resultCount: number,
-    options?: IQueryOptions<ModelType>
-  ) => Promise<void>;
-
-  /**
-   * Overridable hook which is called before each replace/merge.
-   *
-   * The returned payload will be used as input for the replace/merge method.
-   * @param payload
-   * @param existing
-   * @param options
-   */
-  preSave?: (
-    payload: Partial<ModelType>,
-    options?: IQueryOptions<ModelType>
-  ) => Promise<Partial<ModelType>>;
-
-  /**
-   * Overridable hook which is called after each replace/merge.
-   * @param model
-   * @param prevState
-   * @param updated
-   * @param options
-   */
-  postSave?: (
-    model: Document<ModelType>,
-    prevState: Document<ModelType>,
-    options?: IQueryOptions<ModelType>
-  ) => Promise<void>;
-
-  /**
-   * Overridable hook which is called before each delete.
-   * @param existing
-   * @param options
-   */
-  preDelete?: (
-    existing: ModelType,
-    options?: IQueryOptions<ModelType>
-  ) => Promise<void>;
-
-  /**
-   * Overridable hook which is called after each delete
-   * @param deleted
-   * @param options
-   */
-  postDelete?: (
-    deleted: Document<ModelType>,
-    options?: IQueryOptions<ModelType>
-  ) => Promise<void>;
+  getHook(
+    hook:
+      | "onAuthorization"
+      | "postCount"
+      | "preSave"
+      | "postSave"
+      | "preDelete"
+      | "postDelete"
+  ): undefined | ((...args: any[]) => Promise<any>) {
+    return this[hook as any];
+  }
 }

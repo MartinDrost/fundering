@@ -2,7 +2,7 @@ import { Expression } from "../types";
 import { IModel } from "./model.interface";
 import { IQueryOptions } from "./query-options.interface";
 
-export interface IOnAuthorizationHooks<ModelType = IModel> {
+export interface IOnAuthorization<ModelType = IModel> {
   /**
    * Overridable hook which is called before each find query.
    *
