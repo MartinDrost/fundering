@@ -1,13 +1,8 @@
-import {
-  Aggregate,
-  Document,
-  Model,
-  ModelUpdateOptions,
-  Schema,
-} from "mongoose";
+import { Aggregate, Model, ModelUpdateOptions, Schema } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
+import { Document } from "../types/document.interface";
 import { Expression } from "../types/expression.type";
 import {
   castConditions,
@@ -24,31 +19,39 @@ export abstract class CrudService<ModelType extends IModel> {
    */
   public static serviceMap: Record<string, CrudService<any>> = {};
 
-  constructor(public _model: Model<ModelType & Document>) {
+  constructor(public _model: Model<Document<ModelType>>) {
     CrudService.serviceMap[_model.modelName] = this;
 
-    // create the pre and post save hooks
-    // TODO: move pre/post methods as optional to interface and only fetch existing models when the method is present
+    // create the pre/post save/delete hooks
     const service = this;
     const schema = new Schema();
-    schema.pre("save", async function (this: ModelType & Document) {
-      await service.preSave(this, this.$locals.options);
+    schema.pre("save", async function (this: Document<ModelType>) {
+      await service.preSave?.(this, this.$locals.options);
+
+      // store the old state if the service has a postSave hook defined
+      if (this._id && service.postSave) {
+        this.$locals._prevState = await service.findById(this._id);
+      }
     });
-    schema.post("save", async function (this: ModelType & Document) {
-      await service.postSave(this, this.$locals.options);
+    schema.post("save", async function (this: Document<ModelType>) {
+      // fetch the old state and remove it from the model
+      const prevState = this.$locals._prevState;
+      delete this.$locals._prevState;
+
+      await service.postSave?.(this, prevState, this.$locals.options);
     });
     schema.pre(
       "deleteOne",
       { query: false, document: true } as any,
-      async function (this: ModelType & Document) {
-        await service.preDelete(this, this.$locals.options);
+      async function (this: Document<ModelType>) {
+        await service.preDelete?.(this, this.$locals.options);
       }
     );
     schema.post(
       "deleteOne",
       { query: false, document: true },
-      async function (this: ModelType & Document) {
-        await service.postDelete(this, this.$locals.options);
+      async function (this: Document<ModelType>) {
+        await service.postDelete?.(this, this.$locals.options);
       }
     );
     require("mongoose/lib/helpers/model/applyHooks")(_model, schema);
@@ -105,7 +108,7 @@ export abstract class CrudService<ModelType extends IModel> {
   async find(
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
-  ): Promise<(ModelType & Document)[]> {
+  ): Promise<Document<ModelType>[]> {
     // log time to calculate the time remaining for hydration
     const startTime = Date.now();
 
@@ -148,7 +151,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     const result: number =
       (await this.query(conditions, _options))[0]?.count ?? 0;
-    await this.postCount(result, _options);
+    await this.postCount?.(result, _options);
 
     return result;
   }
@@ -215,7 +218,7 @@ export abstract class CrudService<ModelType extends IModel> {
     let pipeline: Record<string, any>[] = [];
 
     // add a match stage for the authorization expression
-    const authorization = await this.onAuthorization(options);
+    const authorization = (await this.onAuthorization?.(options)) ?? {};
     if (Object.keys(authorization).length) {
       pipeline.push({ $match: { $expr: authorization } });
     }
@@ -339,8 +342,8 @@ export abstract class CrudService<ModelType extends IModel> {
       payload: Partial<ModelType>,
       existing: ModelType
     ) => Promise<ModelType>
-  ): Promise<(ModelType & Document)[]> {
-    // make sure we're not merging a Document
+  ): Promise<Document<ModelType>[]> {
+    // make sure we're not merging a IDocument
     payload = (payload as any).toObject?.() ?? payload;
 
     const existingModels = await this.find(conditions);
@@ -353,7 +356,7 @@ export abstract class CrudService<ModelType extends IModel> {
           __v: undefined,
         };
 
-        let document: ModelType & Document = this._model.hydrate(_payload);
+        let document: Document<ModelType> = this._model.hydrate(_payload);
         if (mergeCallback) {
           document = (await mergeCallback(_payload, existing)) as any;
         } else {
@@ -450,11 +453,7 @@ export abstract class CrudService<ModelType extends IModel> {
    * Reference: https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions
    * @param options
    */
-  async onAuthorization(
-    options?: IQueryOptions<ModelType>
-  ): Promise<Expression> {
-    return {};
-  }
+  onAuthorization?: (options?: IQueryOptions<ModelType>) => Promise<Expression>;
 
   /**
    * Overridable hook which is called after each count query.
@@ -463,10 +462,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param resultCount
    * @param options
    */
-  async postCount(
+  postCount?: (
     resultCount: number,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {}
+  ) => Promise<void>;
 
   /**
    * Overridable hook which is called before each replace/merge.
@@ -476,41 +475,41 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param existing
    * @param options
    */
-  async preSave(
+  preSave?: (
     payload: Partial<ModelType>,
     options?: IQueryOptions<ModelType>
-  ): Promise<Partial<ModelType>> {
-    return payload;
-  }
+  ) => Promise<Partial<ModelType>>;
 
   /**
    * Overridable hook which is called after each replace/merge.
-   * @param payload
+   * @param model
+   * @param prevState
    * @param updated
    * @param options
    */
-  async postSave(
-    model: ModelType & Document,
+  postSave?: (
+    model: Document<ModelType>,
+    prevState: Document<ModelType>,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {}
+  ) => Promise<void>;
 
   /**
    * Overridable hook which is called before each delete.
    * @param existing
    * @param options
    */
-  async preDelete(
+  preDelete?: (
     existing: ModelType,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {}
+  ) => Promise<void>;
 
   /**
    * Overridable hook which is called after each delete
    * @param deleted
    * @param options
    */
-  async postDelete(
-    deleted: ModelType & Document,
+  postDelete?: (
+    deleted: Document<ModelType>,
     options?: IQueryOptions<ModelType>
-  ): Promise<void> {}
+  ) => Promise<void>;
 }

@@ -108,7 +108,7 @@ export const getShallowLookupPipeline = async (
         const fieldPath = [...journey, field].filter(Boolean).join(".");
 
         // get any authorization expressions for the related field
-        const expression = await _service.onAuthorization(options);
+        const expression = (await _service.onAuthorization?.(options)) ?? {};
 
         // create a lookup aggregation to populate the models
         pipeline.push({
@@ -213,7 +213,7 @@ export const getPopulateOptions = async (
       }
 
       // get any authorization expressions for the related field
-      const $expr = await _service.onAuthorization(options);
+      const $expr = (await _service.onAuthorization?.(options)) ?? {};
       const match = Object.keys($expr).length ? { $expr } : undefined;
       populate.push({
         path: key,
