@@ -109,7 +109,7 @@ export const getShallowLookupPipeline = async (
 
         // get any authorization expressions for the related field
         const expression =
-          (await _service.getHook("onAuthorization")?.(options)) ?? {};
+          (await _service.getHook("onAuthorization")?.(options ?? {})) ?? {};
 
         // create a lookup aggregation to populate the models
         pipeline.push({
@@ -215,7 +215,7 @@ export const getPopulateOptions = async (
 
       // get any authorization expressions for the related field
       const $expr =
-        (await _service.getHook("onAuthorization")?.(options)) ?? {};
+        (await _service.getHook("onAuthorization")?.(options ?? {})) ?? {};
       const match = Object.keys($expr).length ? { $expr } : undefined;
       populate.push({
         path: key,

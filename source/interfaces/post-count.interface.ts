@@ -3,7 +3,7 @@ import { IQueryOptions } from "./query-options.interface";
 
 export interface IPostCount<ModelType = IModel> {
   /**
-   * Overridable hook which is called after each count query.
+   * This hook is called after each count query called through the CrudService.
    *
    * The method exists mainly for analytical purposes.
    * @param resultCount

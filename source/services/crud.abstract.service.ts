@@ -222,7 +222,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // add a match stage for the authorization expression
     const authorization =
-      (await this.getHook("onAuthorization")?.(options)) ?? {};
+      (await this.getHook("onAuthorization")?.(options ?? {})) ?? {};
     if (Object.keys(authorization).length) {
       pipeline.push({ $match: { $expr: authorization } });
     }
