@@ -1,4 +1,4 @@
-import { Aggregate, Model, ModelUpdateOptions, Schema } from "mongoose";
+import { Model, ModelUpdateOptions, Schema } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -25,7 +25,7 @@ export abstract class CrudService<ModelType extends IModel> {
     const service = this;
     const schema = new Schema();
     schema.pre("save", async function (this: Document<ModelType>) {
-      await service.getHook("preSave")?.(this, this.$locals.options);
+      await service.getHook("preSave")?.(this, this.$locals.options ?? {});
 
       // store the old state if the service has a postSave hook defined
       if (this._id && service.getHook("postSave")) {
@@ -39,22 +39,22 @@ export abstract class CrudService<ModelType extends IModel> {
 
       await service.getHook("postSave")?.(
         this,
-        prevState,
-        this.$locals.options
+        prevState ?? null,
+        this.$locals.options ?? {}
       );
     });
     schema.pre(
       "deleteOne",
       { query: false, document: true } as any,
       async function (this: Document<ModelType>) {
-        await service.getHook("preDelete")?.(this, this.$locals.options);
+        await service.getHook("preDelete")?.(this, this.$locals.options ?? {});
       }
     );
     schema.post(
       "deleteOne",
       { query: false, document: true },
       async function (this: Document<ModelType>) {
-        await service.getHook("postDelete")?.(this, this.$locals.options);
+        await service.getHook("postDelete")?.(this, this.$locals.options ?? {});
       }
     );
     require("mongoose/lib/helpers/model/applyHooks")(_model, schema);
@@ -154,18 +154,9 @@ export abstract class CrudService<ModelType extends IModel> {
 
     const result: number =
       (await this.query(conditions, _options))[0]?.count ?? 0;
-    await this.getHook("postCount")?.(result, _options);
+    await this.getHook("postCount")?.(result, _options ?? {});
 
     return result;
-  }
-
-  /**
-   * Perform a mongodb aggregate query.
-   * Merely a placeholder to work consistently through Fundering.
-   * @param aggregations
-   */
-  aggregate(aggregations?: any | undefined): Aggregate<any[]> {
-    return this._model.aggregate(aggregations).exec();
   }
 
   /**

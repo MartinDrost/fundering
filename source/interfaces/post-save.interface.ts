@@ -12,7 +12,7 @@ export interface IPostSave<ModelType = IModel> {
    */
   postSave(
     model: Document<ModelType>,
-    prevState?: Document<ModelType>,
-    options?: IQueryOptions<ModelType>
+    prevState: Document<ModelType> | null,
+    options: IQueryOptions<ModelType>
   ): Promise<void>;
 }

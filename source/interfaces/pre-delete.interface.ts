@@ -1,3 +1,4 @@
+import { Document } from "../types";
 import { IModel } from "./model.interface";
 import { IQueryOptions } from "./query-options.interface";
 
@@ -8,7 +9,7 @@ export interface IPreDelete<ModelType = IModel> {
    * @param options
    */
   preDelete(
-    existing: ModelType,
-    options?: IQueryOptions<ModelType>
+    existing: Document<ModelType>,
+    options: IQueryOptions<ModelType>
   ): Promise<void>;
 }

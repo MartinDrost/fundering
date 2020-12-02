@@ -1,3 +1,4 @@
+import { Document } from "../types";
 import { IModel } from "./model.interface";
 import { IQueryOptions } from "./query-options.interface";
 
@@ -11,7 +12,7 @@ export interface IPreSave<ModelType = IModel> {
    * @param options
    */
   preSave(
-    payload: Partial<ModelType>,
-    options?: IQueryOptions<ModelType>
+    payload: Document<ModelType>,
+    options: IQueryOptions<ModelType>
   ): Promise<void>;
 }

@@ -10,6 +10,6 @@ export interface IPostDelete<ModelType = IModel> {
    */
   postDelete(
     deleted: Document<ModelType>,
-    options?: IQueryOptions<ModelType>
+    options: IQueryOptions<ModelType>
   ): Promise<void>;
 }
