@@ -25,7 +25,7 @@ export abstract class CrudService<ModelType extends IModel> {
     const service = this;
     const schema = new Schema();
     schema.pre("save", async function (this: Document<ModelType>) {
-      await service.getHook("preSave")?.(this, this.$locals.options ?? {});
+      await service.callHook("preSave", this, this.$locals.options ?? {});
 
       // store the old state if the service has a postSave hook defined
       if (this._id && service.getHook("postSave")) {
@@ -37,7 +37,8 @@ export abstract class CrudService<ModelType extends IModel> {
       const prevState = this.$locals._prevState;
       delete this.$locals._prevState;
 
-      await service.getHook("postSave")?.(
+      await service.callHook(
+        "postSave",
         this,
         prevState ?? null,
         this.$locals.options ?? {}
@@ -47,14 +48,14 @@ export abstract class CrudService<ModelType extends IModel> {
       "deleteOne",
       { query: false, document: true } as any,
       async function (this: Document<ModelType>) {
-        await service.getHook("preDelete")?.(this, this.$locals.options ?? {});
+        await service.callHook("preDelete", this, this.$locals.options ?? {});
       }
     );
     schema.post(
       "deleteOne",
       { query: false, document: true },
       async function (this: Document<ModelType>) {
-        await service.getHook("postDelete")?.(this, this.$locals.options ?? {});
+        await service.callHook("postDelete", this, this.$locals.options ?? {});
       }
     );
     require("mongoose/lib/helpers/model/applyHooks")(_model, schema);
@@ -154,7 +155,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     const result: number =
       (await this.query(conditions, _options))[0]?.count ?? 0;
-    await this.getHook("postCount")?.(result, _options ?? {});
+    await this.callHook("postCount", result, _options ?? {});
 
     return result;
   }
@@ -213,7 +214,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // add a match stage for the authorization expression
     const authorization =
-      (await this.getHook("onAuthorization")?.(options ?? {})) ?? {};
+      (await this.callHook("onAuthorization", options ?? {})) ?? {};
     if (Object.keys(authorization).length) {
       pipeline.push({ $match: { $expr: authorization } });
     }
@@ -451,5 +452,22 @@ export abstract class CrudService<ModelType extends IModel> {
       | "postDelete"
   ): undefined | ((...args: any[]) => Promise<any>) {
     return this[hook as any];
+  }
+
+  /**
+   * Calls the corresponding registered hook method if defined.
+   * @param hook
+   */
+  callHook(
+    hook:
+      | "onAuthorization"
+      | "postCount"
+      | "preSave"
+      | "postSave"
+      | "preDelete"
+      | "postDelete",
+    ...args: any[]
+  ): any {
+    return this[hook as any]?.(args);
   }
 }

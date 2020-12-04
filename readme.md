@@ -47,13 +47,7 @@ Authorization plays a huge part in most production applications and implementing
 _Note: you can imbue the options object with user data to create rules based on context. This is elaborated upon in the [docs](TODO: Deliver url)._
 
 ```Typescript
-import { CrudService, IOnAuthorization, Expression } from 'fundering';
-import { IAuthOptions } from '../common/auth-options.interface';
-import { IUser } from './user.interface';
-import { model } from 'mongoose';
-import { userSchema } from './user.schema';
-
-export class UsersService extends CrudService<IUser> implements IOnAuthorization {
+class UsersService extends CrudService<IUser> implements IOnAuthorization {
   constructor() {
     super(model('User', userSchema));
   }
@@ -68,15 +62,7 @@ export class UsersService extends CrudService<IUser> implements IOnAuthorization
 ### Document middleware
 
 ```Typescript
-import { CrudService, IPreSave } from 'fundering';
-import { encrypt } from '../common/encrypt';
-import { IAuthOptions } from '../common/auth-options.interface';
-import { IUser } from './user.interface';
-import { IUserModel } from './user-model.interface';
-import { model } from 'mongoose';
-import { userSchema } from './user.schema';
-
-export class UsersService extends CrudService<IUser> implements IPreSave {
+class UsersService extends CrudService<IUser> implements IPreSave {
   constructor() {
     super(model('User', userSchema));
   }
@@ -93,13 +79,7 @@ export class UsersService extends CrudService<IUser> implements IPreSave {
 ### Querying
 
 ```Typescript
-import { CrudService } from 'fundering';
-import { IUser } from './user.interface';
-import { IUserModel } from './user-model.interface';
-import { model } from 'mongoose';
-import { userSchema } from './user.schema';
-
-export class UsersService extends CrudService<IUser> {
+class UsersService extends CrudService<IUser> {
   constructor() {
     super(model('User', userSchema));
   }
