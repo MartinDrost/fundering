@@ -6,7 +6,7 @@
 
 <p align='center'>
     <a href='https://www.npmjs.com/~fundering' target='_blank'><img src='https://img.shields.io/npm/v/fundering.svg' alt='NPM Version' /></a>
-    <a href='https://www.npmjs.com/~fundering' target='_blank'><img src='https://img.shields.io/npm/dm/fundering.svg' alt='NPM Downloads' /></a>
+    <a href='https://www.npmjs.com/~fundering' target='_blank'><img src='https://img.shields.io/npm/dt/fundering.svg' alt='NPM Downloads' /></a>
     <a href='https://bundlephobia.com/result?p=fundering' target='_blank'><img src='https://badgen.net/bundlephobia/min/fundering' alt='Minified bundle size' /></a>
     <a href='https://bundlephobia.com/result?p=fundering' target='_blank'><img src='https://badgen.net/bundlephobia/minzip/fundering' alt='Minified + GZipped bundle size' /></a>
 </p>
@@ -40,6 +40,34 @@ export class UsersService extends CrudService<IUser> {
 
 ## Examples
 
+### Querying
+
+MongoDB aggregations are great, powerful and fast, but they can also be complex, hard to maintain and (really) slow. The find methods in the `CrudService` help you keep the positive set of adjectives by utilizing common aggregations for you. The features vary from adding referenced documents to your conditions to randomly sorting the collection before selecting results. The `IQueryOptions` object also allows you to extend existing methods with extra query conditions for a more dynamic codebase.
+
+```Typescript
+class UsersService extends CrudService<IUser> {
+  constructor() {
+    super(model('User', userSchema));
+  }
+
+  getPopulatedGroups() {
+    // get all users with their group fields populated
+    return this.find({}, { populate: ['group'] });
+  }
+
+  getByGroupName(name: string) {
+    // find users based on the name of their referenced group
+    // sort the users on the createdAt date of their group descending
+    return this.find({ 'group.name': name }, { sort: ['-group.createdAt'] });
+  }
+
+  getFiveUniqueNames(options?: IQueryOptions) {
+    // find 5 randomly sorted unique first names while supporting extending the query
+    return this.find({}, { ...options, distinct: 'firstName', random: true, limit: 5 });
+  }
+}
+```
+
 ### Authorization
 
 Authorization plays a huge part in most production applications and implementing it properly can come at the cost of readability and/or performance. You can implement the `IOnAuthorization` interface to utilize the `onAuthorization()` method in your `CrudService`. This method is triggered on every find query called through the `CrudService` and allows you to return a [MongoDB expression object](https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions) to which the returned documents must comply.
@@ -52,7 +80,7 @@ class UsersService extends CrudService<IUser> implements IOnAuthorization {
     super(model('User', userSchema));
   }
 
-  async onAuthorization(options: IAuthOptions<IUser>): Promise<Expression> {
+  async onAuthorization(options: IAuthOptions): Promise<Expression> {
     // limit the user's access to just his/her own account
     return { $eq: ['$_id', options.user?._id] };
   }
@@ -60,6 +88,8 @@ class UsersService extends CrudService<IUser> implements IOnAuthorization {
 ```
 
 ### Document middleware
+
+Fundering offers opt-ins for [document middleware](https://mongoosejs.com/docs/middleware.html#types-of-middleware) through service methods. By moving these methods to the service level you are able to keep your logic more centralized and make use of patterns like dependency injection more easily. Fundering also extends the functionality by allowing context injection and keeping all arguments neatly typed.
 
 ```Typescript
 class UsersService extends CrudService<IUser> implements IPreSave {
@@ -76,25 +106,18 @@ class UsersService extends CrudService<IUser> implements IPreSave {
 }
 ```
 
-### Querying
-
-```Typescript
-class UsersService extends CrudService<IUser> {
-  constructor() {
-    super(model('User', userSchema));
-  }
-
-  getByGroupName(name: string) {
-    // find users based on the name of their populated group
-    // sort the users on the createdAt date of their group descending
-    return this.find({ 'group.name': name }, { sort: [ '-group.createdAt' ] });
-  }
-}
-```
-
 ## Documentation
 
--- point the viewer to the full documentation with section links to: Querying, Data manipulation(?), Hooks and Authorization
+You can consult the [wiki](https://github.com/MartinDrost/nest-utilities/wiki) for more detailed information about the following subjects:
+
+- [The IQueryOptions object](https://github.com/MartinDrost/fundering/wiki/The-IQueryOptions-object)
+- [Querying data](https://github.com/MartinDrost/fundering/wiki/Querying-data)
+- [Create, update and delete methods](https://github.com/MartinDrost/fundering/wiki/Create,-update-and-delete-methods)
+- [Middleware](https://github.com/MartinDrost/fundering/wiki/Middleware)
+
+## Using Fundering with Nestjs?
+
+Make sure you check out the [nest-utilities](https://github.com/MartinDrost/nest-utilities) package for flexible endpoints and a great developer experience for front-enders and back-enders alike.
 
 ---
 
