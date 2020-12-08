@@ -13,7 +13,7 @@
 
 ## Description
 
-Fundering acts as a ground layer of your service architecture and helps you keep your application structured by offering helper methods and reactive hooks. Rather than reinventing the wheel, the framework uses [Mongoose](https://github.com/Automattic/mongoose) ORM for communication with MongoDB and extends upon the functionality that is already there. A few examples of these functionalities are; dynamic population, recursive authorization, query type casting and support for dependency injection in document middleware.
+Fundering acts as a ground layer of your service architecture and helps you keep your application structured by offering helper methods and reactive hooks. Rather than reinventing the wheel, the framework uses [Mongoose](https://github.com/Automattic/mongoose) ORM for communication with MongoDB and extends upon the functionality that is already there. A few examples of these functionalities are; dynamic population, recursive authorization, query type casting and service based document middleware.
 
 ## Installation
 
@@ -72,7 +72,7 @@ class UsersService extends CrudService<IUser> {
 
 Authorization plays a huge part in most production applications and implementing it properly can come at the cost of readability and/or performance. You can implement the `IOnAuthorization` interface to utilize the `onAuthorization()` method in your `CrudService`. This method is triggered on every find query called through the `CrudService` and allows you to return a [MongoDB expression object](https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions) to which the returned documents must comply.
 
-_Note: you can imbue the options object with user data to create rules based on context. This is elaborated upon in the [docs](TODO: Deliver url)._
+_Note: you can imbue the options object with user data to create rules based on context. This is elaborated upon in the [wiki](https://github.com/MartinDrost/fundering/wiki/The-IQueryOptions-object)._
 
 ```Typescript
 class UsersService extends CrudService<IUser> implements IOnAuthorization {
