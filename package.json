@@ -1,6 +1,6 @@
 {
   "name": "fundering",
-  "version": "0.0.0-alpha.41",
+  "version": "1.0.0",
   "description": "",
   "main": "distribution/index.js",
   "scripts": {
