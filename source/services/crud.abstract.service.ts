@@ -70,6 +70,10 @@ export abstract class CrudService<ModelType extends IModel> {
     const user = await new this._model(payload).save({
       session: options?.session,
     });
+    if (!options) {
+      return user;
+    }
+
     return this.findById(user._id, options);
   }
 
