@@ -66,8 +66,11 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param payload
    * @param options
    */
-  create(payload: ModelType, options?: IQueryOptions<ModelType>) {
-    return new this._model(payload).save({ session: options?.session });
+  async create(payload: ModelType, options?: IQueryOptions<ModelType>) {
+    const user = await new this._model(payload).save({
+      session: options?.session,
+    });
+    return this.findById(user._id, options);
   }
 
   /**
