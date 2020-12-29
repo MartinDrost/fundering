@@ -278,6 +278,8 @@ export const castConditions = (
 
         // determine the type of the field based on the schema and cast the value if necessary
         type =
+          (service._model.schema as any)?.paths?.[schemaField]
+            ?.$embeddedSchemaType?.instance ||
           (service._model.schema as any)?.paths?.[schemaField]?.instance ||
           type;
 
