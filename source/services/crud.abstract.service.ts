@@ -67,14 +67,14 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param options
    */
   async create(payload: ModelType, options?: IQueryOptions<ModelType>) {
-    const user = await new this._model(payload).save({
+    const model = await new this._model(payload).save({
       session: options?.session,
     });
     if (!options) {
-      return user;
+      return model;
     }
 
-    return this.findById(user._id, options);
+    return this.findById(model._id, options);
   }
 
   /**
@@ -315,6 +315,41 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
+   * Update an entity if the (_)id matches, create it otherwise
+   * @param payload
+   * @param options
+   */
+  upsertModel(
+    payload: ModelType,
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>> {
+    return this.upsert({ _id: payload._id || payload.id }, payload, options)[0];
+  }
+
+  /**
+   * Update entities if the conditions match, create the payload otherwise
+   * @param payload
+   * @param options
+   */
+  async upsert(
+    conditions: Conditions,
+    payload: ModelType,
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
+    // replace the models if it yields results
+    const models = await this.replace(conditions, payload, options);
+    if (models.length) {
+      return models;
+    }
+
+    // remove the id's and create the payload otherwise
+    delete payload._id;
+    delete payload.id;
+
+    return Promise.all([this.create(payload, options)]);
+  }
+
+  /**
    * Update a single model based its the (_)id field
    * @param payload
    * @param options
@@ -475,6 +510,6 @@ export abstract class CrudService<ModelType extends IModel> {
       | "postDelete",
     ...args: any[]
   ): any {
-    return this[hook as any]?.(args);
+    return this[hook as any]?.(...args);
   }
 }
