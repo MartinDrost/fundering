@@ -179,11 +179,31 @@ export const getPopulateOptions = async (
       populateOptions = Object.keys((service._model.schema as any).virtuals);
     }
 
-    const populate: ModelPopulateOptions[] = [];
+    // turn population strings into deep populateOptions objects
     const _populateOptions: IPopulateOptions[] =
-      populateOptions?.map((item) =>
-        typeof item === "object" ? item : { path: item }
-      ) ?? [];
+      populateOptions?.map((item) => {
+        if (typeof item === "string") {
+          const paths = item.split(".");
+          const option: IPopulateOptions = { path: "" };
+          let ref = option;
+          for (const path of paths) {
+            if (!ref.path) {
+              ref.path = path;
+              continue;
+            }
+
+            const option = { path };
+            ref.populate = [option];
+            ref = option;
+          }
+          return option;
+        }
+        return item;
+      }) ?? [];
+
+    // turn the PopulateOptions into Mongoose ModePopulateOptions
+    // with authorization rules
+    const populate: ModelPopulateOptions[] = [];
     for (const populateOption of _populateOptions) {
       let _service = service;
       // move to the next service based on the path's virtual
