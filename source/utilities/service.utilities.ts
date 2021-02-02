@@ -1,7 +1,9 @@
 import { isValidObjectId, ModelPopulateOptions, Types } from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
+import { IPopulateOptions } from "../interfaces/populate-options.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { CrudService } from "../services/crud.abstract.service";
+import { Expression } from "../types";
 import { Conditions } from "../types/conditions.type";
 
 /**
@@ -162,36 +164,6 @@ export const getPopulateOptions = async (
   service: CrudService<any>,
   options: IQueryOptions
 ): Promise<ModelPopulateOptions[]> => {
-  // if an empty populate array has been provided, populate the root
-  if (options.populate?.length === 0) {
-    options.populate = Object.keys((service._model.schema as any).virtuals);
-  }
-
-  // build a population structure based on the separated paths
-  const populateStructure: Record<string, any> = {};
-  for (const key of Array.from(new Set(options.populate))) {
-    const cleanKey = key
-      .split(".")
-      .filter((field) => !field.includes("$") && isNaN(+field));
-
-    let reference = populateStructure;
-    for (const field of cleanKey) {
-      reference[field] = reference[field] ?? {};
-      reference = reference[field];
-    }
-  }
-
-  // build a select structure to project populated data
-  const selectStructure: Record<string, any> = {};
-  for (const key of Array.from(new Set(options.select))) {
-    const splitKey = key.split(".");
-    let reference = selectStructure;
-    for (const field of splitKey) {
-      reference[field] = reference[field] ?? {};
-      reference = reference[field];
-    }
-  }
-
   /**
    * Build population options recursively
    * @param populateStructure
@@ -199,40 +171,56 @@ export const getPopulateOptions = async (
    * @param service
    */
   const recursion = async (
-    populateStructure: Record<string, any>,
-    selectStructure: Record<string, any>,
+    populateOptions: (string | IPopulateOptions)[],
     service: CrudService<any>
   ) => {
+    // if an empty populate array has been provided, populate the root
+    if (populateOptions?.length === 0) {
+      populateOptions = Object.keys((service._model.schema as any).virtuals);
+    }
+
     const populate: ModelPopulateOptions[] = [];
-    for (const [key, children] of Object.entries(populateStructure)) {
+    const _populateOptions: IPopulateOptions[] =
+      populateOptions?.map((item) =>
+        typeof item === "object" ? item : { path: item }
+      ) ?? [];
+    for (const populateOption of _populateOptions) {
       let _service = service;
       // move to the next service based on the path's virtual
-      const virtual = (_service._model.schema as any).virtuals[key];
+      const virtual = (_service._model.schema as any).virtuals[
+        populateOption.path
+      ];
       _service = CrudService.serviceMap[virtual?.options?.ref];
       if (!_service) {
         continue;
       }
 
       // get any authorization expressions for the related field
-      const $expr =
-        (await _service.callHook("onAuthorization", options ?? {})) ?? {};
-      const match = Object.keys($expr).length ? { $expr } : undefined;
+      const $expr: Expression | undefined = await _service.callHook(
+        "onAuthorization",
+        options ?? {}
+      );
       populate.push({
-        path: key,
-        select: Object.keys(selectStructure[key] || {}).join(" "),
-        match,
-        populate: await recursion(
-          children,
-          selectStructure[key] || {},
-          _service
-        ),
+        path: populateOption.path,
+        select: populateOption.select,
+        match: { $and: [populateOption.match ?? {}, { $expr: $expr ?? {} }] },
+        options: {
+          sort: populateOption.sort,
+          limit: populateOption.limit,
+          skip: populateOption.skip,
+        },
+        populate: populateOption.populate
+          ? await recursion(populateOption.populate, _service)
+          : undefined,
       });
     }
-
     return populate;
   };
 
-  return recursion(populateStructure, selectStructure, service);
+  if (!options.populate) {
+    return [];
+  }
+  return recursion(options.populate, service);
 };
 
 /**

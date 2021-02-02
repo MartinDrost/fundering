@@ -180,8 +180,8 @@ export abstract class CrudService<ModelType extends IModel> {
     // clone the conditions object
     conditions = { ...conditions };
 
-    // merge the filter options with the $and conditions
-    conditions.$and = [{}, ...(conditions.$and ?? []), options?.filter ?? {}];
+    // merge the match options with the $and conditions
+    conditions.$and = [{}, ...(conditions.$and ?? []), options?.match ?? {}];
 
     // cast any eligible fields to their basic types
     conditions = castConditions(conditions, this);

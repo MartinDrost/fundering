@@ -1,5 +1,6 @@
 import { ClientSession } from "mongoose";
 import { Conditions } from "../types/conditions.type";
+import { IPopulateOptions } from "./populate-options.interface";
 
 export interface IQueryOptions<ModelType = any> {
   sort?: string[];
@@ -9,8 +10,8 @@ export interface IQueryOptions<ModelType = any> {
   select?: string[];
   distinct?: string;
 
-  filter?: Conditions<ModelType>;
-  populate?: string[];
+  match?: Conditions<ModelType>;
+  populate?: (string | IPopulateOptions<ModelType>)[];
 
   pipelines?: Record<string, any>[];
   session?: ClientSession;
