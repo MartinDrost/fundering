@@ -13,7 +13,4 @@ export const castableOperators = [
   "$nin",
   "$exists",
   "$size",
-  "$regex",
-  "$options",
-  "$not",
 ];
