@@ -6,4 +6,5 @@ export interface IPopulateOptions<ModelType = any>
     "random" | "pipelines" | "session" | "maxTimeMS"
   > {
   path: string;
+  populate?: IPopulateOptions<ModelType>[];
 }
