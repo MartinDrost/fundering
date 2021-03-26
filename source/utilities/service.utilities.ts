@@ -164,83 +164,105 @@ export const getPopulateOptions = async (
   service: CrudService<any>,
   options: IQueryOptions
 ): Promise<ModelPopulateOptions[]> => {
-  /**
-   * Build population options recursively
-   * @param populateStructure
-   * @param selectStructure
-   * @param service
-   */
-  const recursion = async (
-    populateOptions: (string | IPopulateOptions)[],
-    service: CrudService<any>
-  ) => {
-    // if an empty populate array has been provided, populate the root
-    if (populateOptions?.length === 0) {
-      populateOptions = Object.keys((service._model.schema as any).virtuals);
-    }
-
-    // turn population strings into deep populateOptions objects
-    const _populateOptions: IPopulateOptions[] =
-      populateOptions?.map((item) => {
-        if (typeof item === "string") {
-          const paths = item.split(".");
-          const option: IPopulateOptions = { path: "" };
-          let ref = option;
-          for (const path of paths) {
-            if (!ref.path) {
-              ref.path = path;
-              continue;
-            }
-
-            const option = { path };
-            ref.populate = [option];
-            ref = option;
-          }
-          return option;
-        }
-        return item;
-      }) ?? [];
-
-    // turn the PopulateOptions into Mongoose ModePopulateOptions
-    // with authorization rules
-    const populate: ModelPopulateOptions[] = [];
-    for (const populateOption of _populateOptions) {
-      let _service = service;
-      // move to the next service based on the path's virtual
-      const virtual = (_service._model.schema as any).virtuals[
-        populateOption.path
-      ];
-      _service = CrudService.serviceMap[virtual?.options?.ref];
-      if (!_service) {
-        continue;
-      }
-
-      // get any authorization expressions for the related field
-      const $expr: Expression | undefined = await _service.callHook(
-        "onAuthorization",
-        options ?? {}
-      );
-      populate.push({
-        path: populateOption.path,
-        select: populateOption.select,
-        match: { $and: [populateOption.match ?? {}, { $expr: $expr ?? {} }] },
-        options: {
-          sort: populateOption.sort,
-          limit: populateOption.limit,
-          skip: populateOption.skip,
-        },
-        populate: populateOption.populate
-          ? await recursion(populateOption.populate, _service)
-          : undefined,
-      });
-    }
-    return populate;
-  };
-
   if (!options.populate) {
     return [];
   }
-  return recursion(options.populate, service);
+  return buildPopulateOptions(options.populate, service, options);
+};
+
+/**
+ * Build population options recursively
+ * @param populateStructure
+ * @param selectStructure
+ * @param service
+ */
+const buildPopulateOptions = async (
+  populateStructure: (string | IPopulateOptions)[],
+  service: CrudService<any>,
+  options?: IQueryOptions
+) => {
+  // if an empty populate array has been provided, populate the root
+  if (populateStructure?.length === 0) {
+    populateStructure = Object.keys((service._model.schema as any).virtuals);
+  }
+
+  // turn population strings into deep populateOptions objects
+  let rawPopulateOptions: IPopulateOptions[] =
+    populateStructure?.map((item) => {
+      if (typeof item === "string") {
+        const paths = item.split(".");
+        const option: IPopulateOptions = { path: paths.splice(0, 1)[0] };
+        let ref = option;
+        for (const path of paths) {
+          const option = { path };
+          ref.populate = [option];
+          ref = option;
+        }
+        return option;
+      }
+      return item;
+    }) ?? [];
+
+  // merge populate options which share the same path
+  const populateOptions = mergePopulateOptions(rawPopulateOptions);
+
+  // turn the PopulateOptions into Mongoose ModelPopulateOptions
+  // with authorization rules
+  const populate: ModelPopulateOptions[] = [];
+  for (const populateOption of populateOptions) {
+    let _service = service;
+    // move to the next service based on the path's virtual
+    const virtual = (_service._model.schema as any).virtuals[
+      populateOption.path
+    ];
+    _service = CrudService.serviceMap[virtual?.options?.ref];
+    if (!_service) {
+      continue;
+    }
+
+    // get any authorization expressions for the related field
+    const $expr: Expression | undefined = await _service.callHook(
+      "onAuthorization",
+      options ?? {}
+    );
+    populate.push({
+      path: populateOption.path,
+      select: populateOption.select,
+      match: { $and: [populateOption.match ?? {}, { $expr: $expr ?? {} }] },
+      options: {
+        sort: populateOption.sort,
+        limit: populateOption.limit,
+        skip: populateOption.skip,
+      },
+      populate: populateOption.populate
+        ? await buildPopulateOptions(populateOption.populate, _service)
+        : undefined,
+    });
+  }
+  return populate;
+};
+
+/**
+ * Merges populates of populateOptions to ensure that path has 1 entry
+ * @param populateOptions the list of populate options you want to merge
+ * @returns a merged list of populate options
+ */
+const mergePopulateOptions = (populateOptions: IPopulateOptions[]) => {
+  const mergedOptions: IPopulateOptions[] = [];
+  const populateRecord: Record<string, IPopulateOptions> = {};
+  for (const option of populateOptions) {
+    if (!populateRecord[option.path]) {
+      populateRecord[option.path] = option;
+      mergedOptions.push(populateRecord[option.path]);
+    }
+
+    if (option.populate?.length) {
+      populateRecord[option.path].populate = option.populate.concat(
+        populateRecord[option.path].populate ?? []
+      );
+    }
+  }
+  return mergedOptions;
 };
 
 /**

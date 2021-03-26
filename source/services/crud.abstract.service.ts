@@ -83,7 +83,7 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param options
    */
   async findById(id: any, options?: IQueryOptions<ModelType>) {
-    return (await this.find({ _id: id }, options))[0];
+    return this.findOne({ _id: id }, options);
   }
 
   /**
@@ -108,7 +108,7 @@ export abstract class CrudService<ModelType extends IModel> {
       ...options,
       limit: 1,
     };
-    return (await this.find(conditions, _options))[0];
+    return (await this.find(conditions, _options))[0] ?? null;
   }
 
   /**
