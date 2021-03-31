@@ -1,4 +1,9 @@
-import { Model, ModelUpdateOptions, Schema } from "mongoose";
+import {
+  Document as MongooseDocument,
+  Model,
+  ModelUpdateOptions,
+  Schema,
+} from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -18,7 +23,7 @@ export abstract class CrudService<ModelType extends IModel> {
    */
   public static serviceMap: Record<string, CrudService<any>> = {};
 
-  constructor(public _model: Model<Document<ModelType>>) {
+  constructor(public _model: Model<MongooseDocument | Document>) {
     CrudService.serviceMap[_model.modelName] = this;
 
     // create the pre/post save/delete hooks
@@ -71,7 +76,7 @@ export abstract class CrudService<ModelType extends IModel> {
       session: options?.session,
     });
     if (!options) {
-      return model;
+      return model as Document<ModelType>;
     }
 
     return this.findById(model._id, options);
@@ -394,7 +399,7 @@ export abstract class CrudService<ModelType extends IModel> {
           __v: undefined,
         };
 
-        let document: Document<ModelType> = this._model.hydrate(_payload);
+        let document = this._model.hydrate(_payload) as Document<ModelType>;
         if (mergeCallback) {
           document = (await mergeCallback(_payload, existing)) as any;
         } else {

@@ -1,4 +1,4 @@
-import { isValidObjectId, ModelPopulateOptions, Types } from "mongoose";
+import { isValidObjectId, PopulateOptions, Types } from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
 import { IPopulateOptions } from "../interfaces/populate-options.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
@@ -163,7 +163,7 @@ export const getShallowLookupPipeline = async (
 export const getPopulateOptions = async (
   service: CrudService<any>,
   options: IQueryOptions
-): Promise<ModelPopulateOptions[]> => {
+): Promise<PopulateOptions[]> => {
   if (!options.populate) {
     return [];
   }
@@ -206,9 +206,9 @@ const buildPopulateOptions = async (
   // merge populate options which share the same path
   const populateOptions = mergePopulateOptions(rawPopulateOptions);
 
-  // turn the PopulateOptions into Mongoose ModelPopulateOptions
+  // turn the PopulateOptions into Mongoose PopulateOptions
   // with authorization rules
-  const populate: ModelPopulateOptions[] = [];
+  const populate: PopulateOptions[] = [];
   for (const populateOption of populateOptions) {
     let _service = service;
     // move to the next service based on the path's virtual
@@ -379,7 +379,7 @@ export const hydrateList = async (
   }
 
   // concatenate the population pipeline
-  let populateOptions: ModelPopulateOptions[] = [];
+  let populateOptions: PopulateOptions[] = [];
   if (options?.populate !== undefined) {
     populateOptions = await getPopulateOptions(service, options);
   }
