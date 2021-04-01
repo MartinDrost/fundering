@@ -1,9 +1,4 @@
-import {
-  Document as MongooseDocument,
-  Model,
-  ModelUpdateOptions,
-  Schema,
-} from "mongoose";
+import { Model, ModelUpdateOptions, Schema } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -23,7 +18,7 @@ export abstract class CrudService<ModelType extends IModel> {
    */
   public static serviceMap: Record<string, CrudService<any>> = {};
 
-  constructor(public _model: Model<MongooseDocument | Document>) {
+  constructor(public _model: Model<Document | any>) {
     CrudService.serviceMap[_model.modelName] = this;
 
     // create the pre/post save/delete hooks
@@ -71,7 +66,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param payload
    * @param options
    */
-  async create(payload: ModelType, options?: IQueryOptions<ModelType>) {
+  async create(
+    payload: ModelType,
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType> | null> {
     const model = await new this._model(payload).save({
       session: options?.session,
     });
@@ -87,7 +85,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param id
    * @param options
    */
-  async findById(id: any, options?: IQueryOptions<ModelType>) {
+  async findById(
+    id: any,
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType> | null> {
     return this.findOne({ _id: id }, options);
   }
 
@@ -96,7 +97,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param ids
    * @param options
    */
-  findByIds(ids: any[], options?: IQueryOptions<ModelType>) {
+  findByIds(
+    ids: any[],
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
     return this.find({ _id: { $in: ids } }, options);
   }
 
@@ -108,7 +112,7 @@ export abstract class CrudService<ModelType extends IModel> {
   async findOne(
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
-  ) {
+  ): Promise<Document<ModelType> | null> {
     const _options: IQueryOptions<ModelType> = {
       ...options,
       limit: 1,
@@ -146,7 +150,7 @@ export abstract class CrudService<ModelType extends IModel> {
   async count(
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
-  ) {
+  ): Promise<number> {
     // disable options that would limit the results or add redundant load
     const _options: IQueryOptions<ModelType> = {
       ...options,
@@ -351,7 +355,8 @@ export abstract class CrudService<ModelType extends IModel> {
     delete payload._id;
     delete payload.id;
 
-    return Promise.all([this.create(payload, options)]);
+    const created = await this.create(payload, options);
+    return created ? [created] : [];
   }
 
   /**
@@ -464,7 +469,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param id
    * @param options
    */
-  async deleteById(id: any, options?: IQueryOptions<ModelType>) {
+  async deleteById(
+    id: any,
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType> | null> {
     return (await this.delete({ _id: id }, options))[0];
   }
 
@@ -476,7 +484,7 @@ export abstract class CrudService<ModelType extends IModel> {
   async delete(
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
-  ) {
+  ): Promise<Document<ModelType>[]> {
     const selection = await this.find(conditions, options);
     for (const existing of selection) {
       await existing.deleteOne({ session: options?.session } as any);
