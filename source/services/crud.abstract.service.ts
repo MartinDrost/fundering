@@ -328,11 +328,13 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param payload
    * @param options
    */
-  upsertModel(
+  async upsertModel(
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
-    return this.upsert({ _id: payload._id || payload.id }, payload, options)[0];
+    return (
+      await this.upsert({ _id: payload._id || payload.id }, payload, options)
+    )[0];
   }
 
   /**
@@ -420,8 +422,8 @@ export abstract class CrudService<ModelType extends IModel> {
         // marking the version number causes conflicts
         document.unmarkModified("__v");
         delete document.__v;
-
-        return document.save({ session: options?.session });
+        await document.save({ session: options?.session });
+        return (await this.findById(document._id, options))!;
       })
     );
   }
