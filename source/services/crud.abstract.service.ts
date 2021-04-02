@@ -69,7 +69,7 @@ export abstract class CrudService<ModelType extends IModel> {
   async create(
     payload: ModelType,
     options?: IQueryOptions<ModelType>
-  ): Promise<Document<ModelType> | null> {
+  ): Promise<Document<ModelType>> {
     const model = await new this._model(payload).save({
       session: options?.session,
     });
@@ -77,7 +77,12 @@ export abstract class CrudService<ModelType extends IModel> {
       return model as Document<ModelType>;
     }
 
-    return this.findById(model._id, options);
+    return (await this.findById(model._id, {
+      populate: options?.populate,
+      select: options?.select,
+      session: options?.session,
+      maxTimeMS: options?.maxTimeMS,
+    }))!;
   }
 
   /**
