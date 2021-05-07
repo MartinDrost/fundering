@@ -9,6 +9,7 @@ import {
   getDeepKeys,
   getShallowLookupPipeline,
   hydrateList,
+  optionToPipeline,
 } from "../utilities/service.utilities";
 
 const defaultMaxTime = 10000;
@@ -200,35 +201,8 @@ export abstract class CrudService<ModelType extends IModel> {
     // cast any eligible fields to their basic types
     conditions = castConditions(conditions, this);
 
-    // set projection fields based on select options
-    const projection: Record<string, any> = {};
-    for (const path of options?.select ?? []) {
-      let reference = projection;
-      const splitPath = path.split(".");
-      for (let i = 0; i < splitPath.length; i++) {
-        const key = splitPath[i];
-        if (typeof reference[key] !== "object") {
-          reference[key] = {};
-        }
-        // set the tail to 1 if it's no filled object
-        if (i + 1 === splitPath.length && !Object.keys(reference[key]).length) {
-          reference[key] = 1;
-        }
-
-        reference = reference[key];
-      }
-    }
-    options?.select
-      ?.filter((field) => !field.includes("."))
-      .forEach((field) => (projection[field] = 1));
-
     // set sort fields based on sort options
-    const sort: Record<string, number> = {};
-    options?.sort?.forEach((field) => {
-      const desc = field.startsWith("-");
-      const cleanField = desc ? field.replace("-", "") : field;
-      sort[cleanField] = desc ? -1 : 1;
-    });
+    const sort = optionToPipeline.sort(options.sort);
 
     // build the aggregation pipeline
     let pipeline: Record<string, any>[] = [];
@@ -241,35 +215,24 @@ export abstract class CrudService<ModelType extends IModel> {
     }
 
     // add a shallow lookup stage for matching, sorting
-    const filterKeys = getDeepKeys(conditions).concat(Object.keys(sort));
+    const filterKeys = getDeepKeys(conditions).concat(
+      Object.keys(sort[0] ?? {})
+    );
     pipeline = pipeline.concat(
       await getShallowLookupPipeline(filterKeys, this, options)
     );
 
     pipeline.push({ $match: conditions });
-    if (options?.distinct) {
-      pipeline.push({
-        $group: {
-          _id: `$${options.distinct}`,
-          doc: { $first: "$$ROOT" },
-        },
-      });
-      pipeline.push({ $replaceRoot: { newRoot: "$doc" } });
-    }
-    if (options?.random) {
-      const size = options.limit ?? (await this.count(conditions));
-      pipeline.push({ $sample: { size } });
+    pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
+    if (options.random) {
+      pipeline = pipeline.concat(
+        optionToPipeline.random(options.limit ?? (await this.count(conditions)))
+      );
     } else {
-      if (Object.keys(sort).length) {
-        pipeline.push({ $sort: sort });
-      }
-      if (options?.skip) {
-        pipeline.push({ $skip: options.skip });
-      }
+      pipeline = pipeline.concat(sort);
+      pipeline = pipeline.concat(optionToPipeline.skip(options.skip));
     }
-    if (options?.limit) {
-      pipeline.push({ $limit: options.limit });
-    }
+    pipeline = pipeline.concat(optionToPipeline.limit(options.limit));
 
     // unset virtuals populated for conditions and sorting
     pipeline.push({
@@ -282,9 +245,8 @@ export abstract class CrudService<ModelType extends IModel> {
       ),
     });
 
-    if (Object.keys(projection).length) {
-      pipeline.push({ $project: projection });
-    }
+    // set projection fields based on select options
+    pipeline = pipeline.concat(optionToPipeline.select(options.select));
 
     // execute aggregate with the built pipeline and the one provided through options
     return this._model

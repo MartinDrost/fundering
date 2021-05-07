@@ -431,3 +431,121 @@ export const hydrateList = async (
   }
   return models;
 };
+
+/**
+ * A collection of methods used to transform IQueryOption options to
+ * aggregation pipelines. If undefined or insufficient data is provided
+ * the methods will return an empty pipeline.
+ */
+export const optionToPipeline = {
+  /**
+   * Transform the sort option into a pipeline containing the $sort stage
+   * @param sort
+   * @returns
+   */
+  sort: (sort?: string[]) => {
+    if (!sort?.length) {
+      return [];
+    }
+
+    const $sort: Record<string, number> = {};
+    sort?.forEach((field) => {
+      const desc = field.startsWith("-");
+      const cleanField = desc ? field.replace("-", "") : field;
+      $sort[cleanField] = desc ? -1 : 1;
+    });
+
+    return [{ $sort }];
+  },
+
+  /**
+   * Returns a $sample stage with the provided limit.
+   * @param limit
+   * @returns
+   */
+  random: (limit?: number) => {
+    if (limit === undefined) {
+      return [];
+    }
+    return [{ $sample: limit }];
+  },
+
+  /**
+   * Transform the skip option into a pipeline containing the $skip stage
+   * @param skip
+   * @returns
+   */
+  skip: (skip?: number) => {
+    if (skip === undefined) {
+      return [];
+    }
+    return [{ $skip: skip }];
+  },
+
+  /**
+   * Transform the limit option into a pipeline containing the $limit stage
+   * @param limit
+   * @returns
+   */
+  limit: (limit?: number) => {
+    if (limit === undefined) {
+      return [];
+    }
+    return [{ $limit: limit }];
+  },
+
+  /**
+   * Transform the select option into a pipeline containing the $project stage
+   * @param select
+   * @returns
+   */
+  select: (select?: string[]) => {
+    const projection: Record<string, any> = {};
+    for (const path of select ?? []) {
+      let reference = projection;
+      const splitPath = path.split(".");
+      for (let i = 0; i < splitPath.length; i++) {
+        const key = splitPath[i];
+        if (typeof reference[key] !== "object") {
+          reference[key] = {};
+        }
+        // set the tail to 1 if it's no filled object
+        if (i + 1 === splitPath.length && !Object.keys(reference[key]).length) {
+          reference[key] = 1;
+        }
+
+        reference = reference[key];
+      }
+    }
+    select
+      ?.filter((field) => !field.includes("."))
+      .forEach((field) => (projection[field] = 1));
+
+    if (!Object.keys(projection).length) {
+      return [];
+    }
+    return [{ $project: projection }];
+  },
+
+  /**
+   * Transform the distinct option into a pipeline containing a $group and
+   * $replaceRoot stage.
+   * @param distinct
+   * @returns
+   */
+  distinct: (distinct?: string) => {
+    if (!distinct) {
+      return [];
+    }
+
+    return [
+      {
+        $group: {
+          _id: `$${distinct}`,
+          doc: { $first: "$$ROOT" },
+        },
+      },
+      { $replaceRoot: { newRoot: "$doc" } },
+    ];
+  },
+};
