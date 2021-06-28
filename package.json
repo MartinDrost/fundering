@@ -1,6 +1,6 @@
 {
   "name": "fundering",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "",
   "main": "distribution/index.js",
   "types": "distribution/index.d.ts",
@@ -18,7 +18,7 @@
     "typescript": "4.0.2"
   },
   "peerDependencies": {
-    "mongoose": "> 5.12"
+    "mongoose": ">= 5.12"
   },
   "repository": "git+https://github.com/MartinDrost/fundering.git",
   "author": "MartinDrost",

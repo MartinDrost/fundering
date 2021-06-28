@@ -422,7 +422,8 @@ export const hydrateList = async (
               reject("Schema population timed out");
             } else {
               // add options object to model $locals
-              result.$locals = options || {};
+              result.$locals = result.$locals || {};
+              result.$locals.options = options;
               resolve(result);
             }
           });

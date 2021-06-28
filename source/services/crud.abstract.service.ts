@@ -71,9 +71,13 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
-    const model = await new this._model(payload).save({
+    const model = await new this._model(payload);
+    model.$locals = model.$locals || {};
+    model.$locals.options = options;
+    model.save({
       session: options?.session,
     });
+
     if (!options) {
       return model as Document<ModelType>;
     }
