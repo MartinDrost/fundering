@@ -74,7 +74,7 @@ export abstract class CrudService<ModelType extends IModel> {
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = options;
-    model.save({
+    await model.save({
       session: options?.session,
     });
 
