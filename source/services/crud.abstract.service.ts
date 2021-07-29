@@ -393,6 +393,9 @@ export abstract class CrudService<ModelType extends IModel> {
         // marking the version number causes conflicts
         document.unmarkModified("__v");
         delete document.__v;
+
+        document.$locals.options = options;
+
         await document.save({ session: options?.session });
         return (await this.findById(document._id, options))!;
       })
