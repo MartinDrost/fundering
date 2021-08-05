@@ -83,10 +83,10 @@ export abstract class CrudService<ModelType extends IModel> {
     }
 
     return (await this.findById(model._id, {
-      populate: options?.populate,
-      select: options?.select,
-      session: options?.session,
-      maxTimeMS: options?.maxTimeMS,
+      ...options,
+      limit: undefined,
+      match: undefined,
+      skip: undefined,
     }))!;
   }
 
