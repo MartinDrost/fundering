@@ -12,5 +12,5 @@ export interface IPostCount<ModelType = IModel> {
   postCount(
     resultCount: number,
     options: IQueryOptions<ModelType>
-  ): Promise<void>;
+  ): Promise<void> | void;
 }

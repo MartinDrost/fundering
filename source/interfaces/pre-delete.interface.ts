@@ -11,5 +11,5 @@ export interface IPreDelete<ModelType = IModel> {
   preDelete(
     existing: Document<ModelType>,
     options: IQueryOptions<ModelType>
-  ): Promise<void>;
+  ): Promise<void> | void;
 }

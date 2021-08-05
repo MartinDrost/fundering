@@ -14,5 +14,5 @@ export interface IPreSave<ModelType = IModel> {
   preSave(
     payload: Document<ModelType>,
     options: IQueryOptions<ModelType>
-  ): Promise<void>;
+  ): Promise<void> | void;
 }

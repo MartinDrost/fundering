@@ -14,5 +14,7 @@ export interface IOnAuthorization<ModelType = IModel> {
    * Reference: https://docs.mongodb.com/manual/meta/aggregation-quick-reference/#aggregation-expressions
    * @param options
    */
-  onAuthorization(options: IQueryOptions<ModelType>): Promise<Expression>;
+  onAuthorization(
+    options: IQueryOptions<ModelType>
+  ): Promise<Expression> | Expression;
 }
