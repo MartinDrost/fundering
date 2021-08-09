@@ -220,7 +220,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // add a shallow lookup stage for matching, sorting
     const filterKeys = getDeepKeys(conditions).concat(
-      Object.keys(sort[0] ?? {})
+      Object.keys(sort[0]?.$sort ?? {})
     );
     pipeline = pipeline.concat(
       await getShallowLookupPipeline(filterKeys, this, options)
