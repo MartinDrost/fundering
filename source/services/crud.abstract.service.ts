@@ -397,7 +397,7 @@ export abstract class CrudService<ModelType extends IModel> {
         document.$locals.options = options;
 
         await document.save({ session: options?.session });
-        return (await this.findById(document._id, options))!;
+        return (await this.findById(document._id, options)) ?? document;
       })
     );
   }
