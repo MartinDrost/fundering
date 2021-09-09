@@ -299,18 +299,21 @@ export const castConditions = (
       if (reference[conditionField] instanceof Types.ObjectId) {
         break;
       }
-
+      let deepService = service;
       for (let j = 0; j < schemaFields.length; j++) {
         const schemaField = schemaFields[j];
 
-        const virtual = (service._model.schema as any).virtuals[schemaField];
-        service = CrudService.serviceMap[virtual?.options?.ref] || service;
+        const virtual = (deepService._model.schema as any).virtuals[
+          schemaField
+        ];
+        deepService =
+          CrudService.serviceMap[virtual?.options?.ref] || deepService;
 
         // determine the type of the field based on the schema and cast the value if necessary
         type =
-          (service._model.schema as any)?.paths?.[schemaField]
+          (deepService._model.schema as any)?.paths?.[schemaField]
             ?.$embeddedSchemaType?.instance ||
-          (service._model.schema as any)?.paths?.[schemaField]?.instance ||
+          (deepService._model.schema as any)?.paths?.[schemaField]?.instance ||
           type;
 
         // cast the final field from the path
