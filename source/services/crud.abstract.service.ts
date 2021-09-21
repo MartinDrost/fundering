@@ -71,6 +71,9 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
+    delete payload._id;
+    delete payload.id;
+
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = options;
