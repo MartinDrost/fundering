@@ -320,8 +320,8 @@ export const castConditions = (
         if (
           i + 1 === conditionFields.length &&
           j + 1 === schemaFields.length &&
-          reference[schemaField] !== null &&
-          reference[schemaField] !== undefined
+          reference[conditionField] !== null &&
+          reference[conditionField] !== undefined
         ) {
           // check if we're casting a mongodb operator directly
           if (schemaField.startsWith("$")) {
@@ -340,18 +340,23 @@ export const castConditions = (
           }
 
           // cast to the collected field type
-          if (type === "ObjectID" && isValidObjectId(reference[schemaField])) {
-            reference[schemaField] = new Types.ObjectId(reference[schemaField]);
+          if (
+            type === "ObjectID" &&
+            isValidObjectId(reference[conditionField])
+          ) {
+            reference[conditionField] = new Types.ObjectId(
+              reference[conditionField]
+            );
           } else if (type === "String") {
-            reference[schemaField] = reference[schemaField].toString();
+            reference[conditionField] = reference[conditionField].toString();
           } else if (type === "Number") {
-            reference[schemaField] = +reference[schemaField] || 0;
+            reference[conditionField] = +reference[conditionField] || 0;
           } else if (type === "Boolean") {
-            reference[schemaField] = ["1", "true"].includes(
-              (reference[schemaField] + "").toLowerCase()
+            reference[conditionField] = ["1", "true"].includes(
+              (reference[conditionField] + "").toLowerCase()
             );
           } else if (type === "Date") {
-            reference[schemaField] = new Date(reference[schemaField]);
+            reference[conditionField] = new Date(reference[conditionField]);
           }
         }
       }
