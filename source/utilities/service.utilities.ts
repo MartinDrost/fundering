@@ -476,7 +476,7 @@ export const optionToPipeline = {
     if (limit === undefined) {
       return [];
     }
-    return [{ $sample: limit }];
+    return [{ $sample: { size: limit } }];
   },
 
   /**
