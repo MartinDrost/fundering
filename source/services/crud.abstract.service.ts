@@ -1,4 +1,4 @@
-import { Model, ModelUpdateOptions, Schema } from "mongoose";
+import { Model, Schema } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -91,6 +91,35 @@ export abstract class CrudService<ModelType extends IModel> {
       match: undefined,
       skip: undefined,
     }))!;
+  }
+
+  /**
+   * Create multiple new entities based on the provided payloads.
+   * If any of the payloads are invalid, the whole operation will be aborted
+   * and the database will be rolled back to the state before the operation.
+   *
+   * This method required the database to support transactions.
+   * @param payloads an array of payloads to create
+   * @param options an option object used to control the operation
+   */
+  async createMany(
+    payloads: ModelType[],
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
+    const session = options?.session || (await this._model.startSession());
+    session.startTransaction();
+
+    try {
+      const documents = await Promise.all(
+        payloads.map((payload) => this.create(payload, { ...options, session }))
+      );
+      await session.commitTransaction();
+
+      return documents;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    }
   }
 
   /**
@@ -266,38 +295,6 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Perform a mongodb updateOne query.
-   * Merely a placeholder to work consistently through Fundering.
-   * @param conditions
-   * @param updateQuery
-   */
-  updateOne(
-    conditions: Conditions,
-    updateQuery: Conditions,
-    updateOptions: ModelUpdateOptions = {}
-  ): Promise<any> {
-    return this._model
-      .updateOne(conditions as any, updateQuery as any, updateOptions)
-      .exec();
-  }
-
-  /**
-   * Perform a mongodb updateMany query.
-   * Merely a placeholder to work consistently through Fundering.
-   * @param conditions
-   * @param updateQuery
-   */
-  updateMany(
-    conditions: Conditions,
-    updateQuery: Conditions,
-    updateOptions: ModelUpdateOptions = {}
-  ): Promise<any> {
-    return this._model
-      .updateMany(conditions as any, updateQuery as any, updateOptions)
-      .exec();
-  }
-
-  /**
    * Update an entity if the (_)id matches, create it otherwise
    * @param payload
    * @param options
@@ -309,6 +306,37 @@ export abstract class CrudService<ModelType extends IModel> {
     return (
       await this.upsert({ _id: payload._id || payload.id }, payload, options)
     )[0];
+  }
+
+  /**
+   * Creates or updates multiple entities based on the provided payloads.
+   * If any of the payloads are invalid, the whole operation will be aborted
+   * and the database will be rolled back to the state before the operation.
+   *
+   * This method required the database to support transactions.
+   * @param payloads an array of payloads to create or update
+   * @param options an option object used to control the operation
+   */
+  async upsertModels(
+    payloads: ModelType[],
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
+    const session = options?.session || (await this._model.startSession());
+    session.startTransaction();
+
+    try {
+      const documents = await Promise.all(
+        payloads.map((payload) =>
+          this.upsertModel(payload, { ...options, session })
+        )
+      );
+      await session.commitTransaction();
+
+      return documents;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    }
   }
 
   /**
@@ -350,6 +378,37 @@ export abstract class CrudService<ModelType extends IModel> {
       throw new Error("No model found with the provided id");
     }
     return updated[0];
+  }
+
+  /**
+   * Updates multiple entities based on the provided payloads.
+   * If any of the payloads are invalid, the whole operation will be aborted
+   * and the database will be rolled back to the state before the operation.
+   *
+   * This method required the database to support transactions.
+   * @param payloads an array of payloads to update
+   * @param options an option object used to control the operation
+   */
+  async replaceModels(
+    payloads: ModelType[],
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
+    const session = options?.session || (await this._model.startSession());
+    session.startTransaction();
+
+    try {
+      const documents = await Promise.all(
+        payloads.map((payload) =>
+          this.replaceModel(payload, { ...options, session })
+        )
+      );
+      await session.commitTransaction();
+
+      return documents;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    }
   }
 
   /**
@@ -423,6 +482,37 @@ export abstract class CrudService<ModelType extends IModel> {
       throw new Error("No model found with the provided id");
     }
     return updated[0];
+  }
+
+  /**
+   * Merges multiple entities based on the provided payloads.
+   * If any of the payloads are invalid, the whole operation will be aborted
+   * and the database will be rolled back to the state before the operation.
+   *
+   * This method required the database to support transactions.
+   * @param payloads an array of payloads to merge
+   * @param options an option object used to control the operation
+   */
+  async mergeModels(
+    payloads: ModelType[],
+    options?: IQueryOptions<ModelType>
+  ): Promise<Document<ModelType>[]> {
+    const session = options?.session || (await this._model.startSession());
+    session.startTransaction();
+
+    try {
+      const documents = await Promise.all(
+        payloads.map((payload) =>
+          this.mergeModel(payload, { ...options, session })
+        )
+      );
+      await session.commitTransaction();
+
+      return documents;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    }
   }
 
   /**
