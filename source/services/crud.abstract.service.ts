@@ -494,7 +494,7 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param options an option object used to control the operation
    */
   async mergeModels(
-    payloads: ModelType[],
+    payloads: Partial<ModelType>[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     const session = options?.session || (await this._model.startSession());
