@@ -235,7 +235,7 @@ const buildPopulateOptions = async (
         skip: populateOption.skip,
       },
       populate: populateOption.populate
-        ? await buildPopulateOptions(populateOption.populate, _service)
+        ? await buildPopulateOptions(populateOption.populate, _service, options)
         : undefined,
     });
   }
