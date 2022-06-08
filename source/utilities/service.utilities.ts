@@ -129,7 +129,7 @@ export const getShallowLookupPipeline = async (
               [fieldPath]: {
                 $filter: {
                   input: "$" + fieldPath,
-                  cond: expression,
+                  cond: contextualizeExpression("$this", expression),
                 },
               },
             },
@@ -557,4 +557,34 @@ export const optionToPipeline = {
       { $replaceRoot: { newRoot: "$doc" } },
     ];
   },
+};
+
+/**
+ * Moves recursively through the object to point all array values from an
+ * expression that start with a $ to the given context.
+ *
+ * @example ..("$this", { $eq: [ "$name", "Martin" ] }) returns { $eq: [ "$$this.name", "Martin" ] }
+ * @param context
+ * @param expression
+ */
+export const contextualizeExpression = (
+  context: string,
+  expression: Expression | string
+) => {
+  if (Array.isArray(expression)) {
+    return expression.map((item) => contextualizeExpression(context, item));
+  }
+
+  if (typeof expression === "string" && expression.startsWith("$")) {
+    return "$" + expression.replace("$", context + ".");
+  }
+
+  if (typeof expression === "object") {
+    return Object.entries(expression).reduce((acc, [key, value]) => {
+      const newValue = contextualizeExpression(context, value);
+      return { ...acc, [key]: newValue };
+    }, {});
+  }
+
+  return expression;
 };
