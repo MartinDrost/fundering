@@ -286,7 +286,7 @@ export const castConditions = (
       ).length === 0
   );
 
-  const castedConditions = { ...conditions };
+  const castedConditions = deepCopy(conditions);
   for (const key of keys) {
     let reference = castedConditions;
     let type: string | undefined = undefined;
@@ -587,4 +587,26 @@ export const contextualizeExpression = (
   }
 
   return expression;
+};
+
+/**
+ * Copies all nested objects in the given object and replaces all references
+ * @param object
+ */
+export const deepCopy = (object: Record<string, any>) => {
+  // deep copy every item in arrays
+  if (Array.isArray(object)) {
+    return object.map(deepCopy);
+  }
+
+  // deep copy every item in objects
+  if (typeof object === "object" && !isValidObjectId(object)) {
+    return Object.entries(object).reduce((acc, [key, value]) => {
+      const newValue = deepCopy(value);
+      return { ...acc, [key]: newValue };
+    }, {});
+  }
+
+  // return primitive values
+  return object;
 };
