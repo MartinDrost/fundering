@@ -231,8 +231,8 @@ const buildPopulateOptions = async (
       match: { $and: [populateOption.match ?? {}, { $expr: $expr ?? {} }] },
       options: {
         sort: populateOption.sort,
-        limit: populateOption.limit,
-        skip: populateOption.skip,
+        limit: +(populateOption.limit ?? 0) || undefined,
+        skip: +(populateOption.skip ?? 0) || undefined,
       },
       populate: populateOption.populate
         ? await buildPopulateOptions(populateOption.populate, _service, options)
