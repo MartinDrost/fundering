@@ -68,6 +68,7 @@ export function deepMerge<Type = Record<string, any>>(
       [undefined, null].includes(value) ||
       typeof value !== "object" ||
       Array.isArray(value) ||
+      Object.entries(value).length === 0 ||
       value instanceof Types.ObjectId
     ) {
       (source as any)[key] = value;
@@ -600,7 +601,11 @@ export const deepCopy = (object: Record<string, any>) => {
   }
 
   // deep copy every item in objects
-  if (typeof object === "object" && !isValidObjectId(object)) {
+  if (
+    Object.entries(object).length &&
+    typeof object === "object" &&
+    !isValidObjectId(object)
+  ) {
     return Object.entries(object).reduce((acc, [key, value]) => {
       const newValue = deepCopy(value);
       return { ...acc, [key]: newValue };
