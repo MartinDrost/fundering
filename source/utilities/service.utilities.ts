@@ -602,7 +602,7 @@ export const deepCopy = (object: Record<string, any>) => {
 
   // deep copy every item in objects
   if (
-    Object.entries(object).length &&
+    Object.entries(object ?? {}).length &&
     typeof object === "object" &&
     !isValidObjectId(object)
   ) {
