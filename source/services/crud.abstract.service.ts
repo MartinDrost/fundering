@@ -251,6 +251,12 @@ export abstract class CrudService<ModelType extends IModel> {
       pipeline.push({ $match: { $expr: authorization } });
     }
 
+    // add a unset stage to censor restricted fields
+    const unset = (await this.callHook("onCensor", options ?? {})) ?? {};
+    if (Object.keys(unset).length) {
+      pipeline.push({ $unset: unset });
+    }
+
     // add a shallow lookup stage for matching, sorting
     const filterKeys = getDeepKeys(conditions).concat(
       getDeepestValues(options.addFields ?? {}).map((value) =>
@@ -578,6 +584,7 @@ export abstract class CrudService<ModelType extends IModel> {
   getHook(
     hook:
       | "onAuthorization"
+      | "onCensor"
       | "postCount"
       | "preSave"
       | "postSave"
@@ -594,6 +601,7 @@ export abstract class CrudService<ModelType extends IModel> {
   callHook(
     hook:
       | "onAuthorization"
+      | "onCensor"
       | "postCount"
       | "preSave"
       | "postSave"

@@ -91,6 +91,7 @@ export const getShallowLookupPipeline = async (
 ): Promise<Conditions[]> => {
   const pipeline: Conditions[] = [];
   const populatedKeys: string[] = [];
+  let unsets: string[] = [];
   for (const key of Array.from(new Set(keys))) {
     // filter mongo operators like $in, $or etc.
     const path = key
@@ -109,6 +110,13 @@ export const getShallowLookupPipeline = async (
       // prevent multiple lookups for the same field
       if (!populatedKeys.includes(journey.concat(field).join("."))) {
         const fieldPath = [...journey, field].filter(Boolean).join(".");
+
+        // add the unset fields to the unsets list
+        const pathUnset =
+          (await _service.callHook("onCensor", options ?? {})) ?? [];
+        unsets = unsets.concat(
+          pathUnset.map((unset) => `${fieldPath}.${unset}`)
+        );
 
         // get any authorization expressions for the related field
         const expression =
@@ -152,6 +160,11 @@ export const getShallowLookupPipeline = async (
       journey.push(field);
       populatedKeys.push(journey.join("."));
     }
+  }
+
+  // add the unsets to the pipeline if there are any
+  if (unsets.length) {
+    pipeline.push({ $unset: unsets });
   }
 
   return pipeline;
@@ -226,6 +239,7 @@ const buildPopulateOptions = async (
       "onAuthorization",
       options ?? {}
     );
+    const unsets = await _service.callHook("onCensor", options ?? {});
     populate.push({
       path: populateOption.path,
       select: populateOption.select,
@@ -234,6 +248,10 @@ const buildPopulateOptions = async (
         sort: populateOption.sort,
         limit: +(populateOption.limit ?? 0) || undefined,
         skip: +(populateOption.skip ?? 0) || undefined,
+        projection: unsets?.reduce((acc, unset) => {
+          acc[unset] = 0;
+          return acc;
+        }, {}),
       },
       populate: populateOption.populate
         ? await buildPopulateOptions(populateOption.populate, _service, options)

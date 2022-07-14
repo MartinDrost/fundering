@@ -6,3 +6,4 @@ export * from "./post-save.interface";
 export * from "./pre-delete.interface";
 export * from "./pre-save.interface";
 export * from "./query-options.interface";
+export * from "./on-censor.interface";
