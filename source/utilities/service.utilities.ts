@@ -615,3 +615,39 @@ export const deepCopy = (object: Record<string, any>) => {
   // return primitive values
   return object;
 };
+
+/**
+ * Returns an array of the deepest values within a nested object.
+ */
+export const getDeepestValues = (object: Object) => {
+  if (Object.keys(object).length === 0) {
+    return [];
+  }
+
+  const recur = (
+    object: Object | any[] | string | number | boolean,
+    accumulator: any[] = []
+  ) => {
+    // deep copy every item in arrays
+    if (Array.isArray(object)) {
+      object.forEach((item) => recur(item, accumulator));
+    }
+
+    // deep copy every item in objects
+    else if (
+      Object.entries(object ?? {}).length &&
+      typeof object === "object" &&
+      !isValidObjectId(object)
+    ) {
+      Object.entries(object).forEach(([key, value]) => {
+        recur(value, accumulator);
+      });
+    } else {
+      accumulator.push(object);
+    }
+
+    return accumulator;
+  };
+
+  return recur(object);
+};

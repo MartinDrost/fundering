@@ -6,6 +6,7 @@ import { Document } from "../types/document.interface";
 import {
   castConditions,
   deepMerge,
+  getDeepestValues,
   getDeepKeys,
   getShallowLookupPipeline,
   hydrateList,
@@ -252,11 +253,19 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // add a shallow lookup stage for matching, sorting
     const filterKeys = getDeepKeys(conditions).concat(
+      getDeepestValues(options.addFields ?? {}).map((value) =>
+        value.toString().replace(/^\$/, "")
+      ),
       Object.keys(sort[0]?.$sort ?? {})
     );
     pipeline = pipeline.concat(
       await getShallowLookupPipeline(filterKeys, this, options)
     );
+
+    // add the $addFields stage for projecting fields
+    if (Object.keys(options.addFields ?? {}).length) {
+      pipeline.push({ $addFields: options.addFields });
+    }
 
     pipeline.push({ $match: conditions });
     pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
