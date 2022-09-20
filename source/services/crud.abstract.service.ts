@@ -274,7 +274,6 @@ export abstract class CrudService<ModelType extends IModel> {
     }
 
     pipeline.push({ $match: conditions });
-    pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
     if (options.random) {
       pipeline = pipeline.concat(
         optionToPipeline.random(options.limit ?? (await this.count(conditions)))
@@ -283,6 +282,7 @@ export abstract class CrudService<ModelType extends IModel> {
       pipeline = pipeline.concat(sort);
       pipeline = pipeline.concat(optionToPipeline.skip(options.skip));
     }
+    pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
     pipeline = pipeline.concat(optionToPipeline.limit(options.limit));
 
     // unset virtuals populated for conditions and sorting
