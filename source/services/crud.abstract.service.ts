@@ -280,9 +280,19 @@ export abstract class CrudService<ModelType extends IModel> {
       );
     } else {
       pipeline = pipeline.concat(sort);
+    }
+
+    if (options.distinct) {
+      pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
+
+      // perform a second sort because grouping does not preserve the order
+      // the first sort places the correct distinct item at the top so both are necessary
+      pipeline = pipeline.concat(sort);
+    }
+
+    if (!options.random) {
       pipeline = pipeline.concat(optionToPipeline.skip(options.skip));
     }
-    pipeline = pipeline.concat(optionToPipeline.distinct(options.distinct));
     pipeline = pipeline.concat(optionToPipeline.limit(options.limit));
 
     // unset virtuals populated for conditions and sorting
