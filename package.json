@@ -1,6 +1,6 @@
 {
   "name": "fundering",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "",
   "main": "distribution/index.js",
   "types": "distribution/index.d.ts",
