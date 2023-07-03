@@ -8,9 +8,6 @@ export const castableOperators = [
   "$lte",
   "$gt",
   "$gte",
-  "$all",
-  "$in",
-  "$nin",
   "$exists",
   "$size",
 ];
