@@ -164,7 +164,7 @@ export abstract class CrudService<ModelType extends IModel> {
   }
 
   /**
-   * Find multiple entities matching the provided conditions.
+   * Find and hydrate multiple entities matching the provided conditions.
    * @param conditions
    * @param options
    */
@@ -213,7 +213,8 @@ export abstract class CrudService<ModelType extends IModel> {
     };
 
     const result: number =
-      (await this.query(conditions, _options))[0]?.count ?? 0;
+      (await this.query<{ count: number }>(conditions, _options))[0]?.count ??
+      0;
     await this.callHook("postCount", result, _options ?? {});
 
     return result;
@@ -225,10 +226,10 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param conditions
    * @param options
    */
-  async query(
+  async query<ResponseType = ModelType>(
     conditions: Conditions<ModelType>,
     options: IQueryOptions<ModelType> = {}
-  ) {
+  ): Promise<ResponseType[]> {
     // clone the conditions object
     conditions = { ...conditions };
 
