@@ -561,15 +561,19 @@ export const optionToPipeline = {
    * @param distinct
    * @returns
    */
-  distinct: (distinct?: string) => {
-    if (!distinct) {
+  distinct: (distinct?: string | string[]) => {
+    if (!distinct || !distinct.length) {
       return [];
     }
 
+    const distinctFields = Array.isArray(distinct) ? distinct : [distinct];
     return [
       {
         $group: {
-          _id: `$${distinct}`,
+          _id: distinctFields.reduce((acc, field) => {
+            acc[field] = "$" + field;
+            return acc;
+          }, {}),
           doc: { $first: "$$ROOT" },
         },
       },
