@@ -203,7 +203,7 @@ export abstract class CrudService<ModelType extends IModel> {
         },
         { $limit: 1 },
       ],
-      limit: undefined,
+      limit: 10000, // limit to 10k results to prevent overloading the database
       skip: undefined,
       sort: undefined,
       select: undefined,
