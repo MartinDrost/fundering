@@ -312,7 +312,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // execute aggregate with the built pipeline and the one provided through options
     return this._model
-      .aggregate(pipeline.concat(options?.pipelines ?? []))
+      .aggregate(pipeline.concat(options?.pipelines ?? []) as any)
       .option({
         session: options?.session,
         maxTimeMS: options?.maxTimeMS ?? defaultMaxTime,

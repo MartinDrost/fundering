@@ -7,6 +7,8 @@
     "strict": true,
     "noImplicitAny": false,
     "esModuleInterop": true,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
     "outDir": "distribution",
     "sourceMap": true,
     "declarationMap": true

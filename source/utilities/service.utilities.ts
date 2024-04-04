@@ -1,4 +1,4 @@
-import { isValidObjectId, PopulateOptions, Types } from "mongoose";
+import { Document, isValidObjectId, PopulateOptions, Types } from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
 import { IPopulateOptions } from "../interfaces/populate-options.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
@@ -176,12 +176,20 @@ export const getShallowLookupPipeline = async (
  */
 export const getPopulateOptions = async (
   service: CrudService<any>,
-  options: IQueryOptions
+  options: IQueryOptions,
+  allowedTime: number,
+  startTime: number
 ): Promise<PopulateOptions[]> => {
   if (!options.populate) {
     return [];
   }
-  return buildPopulateOptions(options.populate, service, options);
+  return buildPopulateOptions(
+    options.populate,
+    service,
+    options,
+    allowedTime,
+    startTime
+  );
 };
 
 /**
@@ -193,7 +201,9 @@ export const getPopulateOptions = async (
 const buildPopulateOptions = async (
   populateStructure: (string | IPopulateOptions)[],
   service: CrudService<any>,
-  options?: IQueryOptions
+  options: IQueryOptions | undefined = undefined,
+  allowedTime: number,
+  startTime: number
 ) => {
   // if an empty populate array has been provided, populate the root
   if (populateStructure?.length === 0) {
@@ -253,8 +263,24 @@ const buildPopulateOptions = async (
           return acc;
         }, {}),
       },
+      transform: (doc) => {
+        if (Date.now() - startTime > allowedTime) {
+          throw new Error("Schema population timed out");
+        }
+
+        // add options object to model $locals
+        doc.$locals = doc.$locals || {};
+        doc.$locals.options = options;
+        return doc;
+      },
       populate: populateOption.populate
-        ? await buildPopulateOptions(populateOption.populate, _service, options)
+        ? await buildPopulateOptions(
+            populateOption.populate,
+            _service,
+            options,
+            allowedTime,
+            startTime
+          )
         : undefined,
     });
   }
@@ -363,7 +389,7 @@ export const castConditions = (
             type === "ObjectID" &&
             isValidObjectId(reference[conditionField])
           ) {
-            reference[conditionField] = new Types.ObjectId(
+            reference[conditionField] = (new Types.ObjectId() as any)(
               reference[conditionField]
             );
           } else if (type === "String") {
@@ -408,7 +434,12 @@ export const hydrateList = async (
   // concatenate the population pipeline
   let populateOptions: PopulateOptions[] = [];
   if (options?.populate !== undefined) {
-    populateOptions = await getPopulateOptions(service, options);
+    populateOptions = await getPopulateOptions(
+      service,
+      options,
+      allowedTime,
+      startTime
+    );
   }
 
   const models: any[] = [];
@@ -439,22 +470,9 @@ export const hydrateList = async (
     }
 
     models.push(
-      await new Promise((resolve, reject) => {
-        service._model
-          .hydrate(cursor)
-          .populate(populateOptions, (error, result) => {
-            if (error) {
-              reject(error);
-            } else if (Date.now() - startTime > allowedTime) {
-              reject("Schema population timed out");
-            } else {
-              // add options object to model $locals
-              result.$locals = result.$locals || {};
-              result.$locals.options = options;
-              resolve(result);
-            }
-          });
-      })
+      await (service._model.hydrate(cursor) as Document<any>).populate(
+        populateOptions
+      )
     );
   }
   return models;
