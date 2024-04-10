@@ -1,3 +1,4 @@
+import { ObjectId } from "bson";
 import { Document, isValidObjectId, PopulateOptions, Types } from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
 import { IPopulateOptions } from "../interfaces/populate-options.interface";
@@ -361,6 +362,8 @@ export const castConditions = (
           (deepService._model.schema as any)?.paths?.[schemaField]?.instance ||
           type;
 
+        type = type?.toLowerCase();
+
         // cast the final field from the path
         if (
           i + 1 === conditionFields.length &&
@@ -377,30 +380,30 @@ export const castConditions = (
 
             // set the types of typed operators
             if (schemaField === "$exists") {
-              type = "Boolean";
+              type = "boolean";
             }
             if (schemaField === "$size") {
-              type = "Number";
+              type = "number";
             }
           }
 
           // cast to the collected field type
           if (
-            type === "ObjectID" &&
+            type === "objectid" &&
             isValidObjectId(reference[conditionField])
           ) {
-            reference[conditionField] = (new Types.ObjectId() as any)(
+            reference[conditionField] = ObjectId.createFromHexString(
               reference[conditionField]
             );
-          } else if (type === "String") {
+          } else if (type === "string") {
             reference[conditionField] = reference[conditionField].toString();
-          } else if (type === "Number") {
+          } else if (type === "number") {
             reference[conditionField] = +reference[conditionField] || 0;
-          } else if (type === "Boolean") {
+          } else if (type === "boolean") {
             reference[conditionField] = ["1", "true"].includes(
               (reference[conditionField] + "").toLowerCase()
             );
-          } else if (type === "Date") {
+          } else if (type === "date") {
             reference[conditionField] = new Date(reference[conditionField]);
           }
         }
