@@ -346,20 +346,27 @@ export const castConditions = (
         break;
       }
       let deepService = service;
+      let schemaReference = deepService._model.schema as any;
       for (let j = 0; j < schemaFields.length; j++) {
         const schemaField = schemaFields[j];
+        schemaReference =
+          schemaReference?.paths?.[schemaField] ||
+          schemaReference?.options?.type?.paths?.[schemaField];
 
         const virtual = (deepService._model.schema as any).virtuals[
           schemaField
         ];
-        deepService =
-          CrudService.serviceMap[virtual?.options?.ref] || deepService;
+        if (virtual?.options?.ref) {
+          deepService =
+            CrudService.serviceMap[virtual?.options?.ref] || deepService;
+          schemaReference = deepService._model.schema as any;
+          continue;
+        }
 
         // determine the type of the field based on the schema and cast the value if necessary
         type =
-          (deepService._model.schema as any)?.paths?.[schemaField]
-            ?.$embeddedSchemaType?.instance ||
-          (deepService._model.schema as any)?.paths?.[schemaField]?.instance ||
+          schemaReference?.$embeddedSchemaType?.instance ||
+          schemaReference?.instance ||
           type;
 
         type = type?.toLowerCase();
