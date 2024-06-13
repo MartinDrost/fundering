@@ -269,9 +269,12 @@ const buildPopulateOptions = async (
           throw new Error("Schema population timed out");
         }
 
-        // add options object to model $locals
-        doc.$locals = doc.$locals || {};
-        doc.$locals.options = options;
+        // The transform function can be called for documents that are not found (null)
+        if (doc) {
+          // add options object to model $locals
+          doc.$locals = doc.$locals || {};
+          doc.$locals.options = options;
+        }
         return doc;
       },
       populate: populateOption.populate
