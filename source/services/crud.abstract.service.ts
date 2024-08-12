@@ -72,9 +72,6 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
-    delete payload._id;
-    delete payload.id;
-
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = options;
@@ -380,10 +377,6 @@ export abstract class CrudService<ModelType extends IModel> {
     if (models.length) {
       return models;
     }
-
-    // remove the id's and create the payload otherwise
-    delete payload._id;
-    delete payload.id;
 
     const created = await this.create(payload, options);
     return created ? [created] : [];
