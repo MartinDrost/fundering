@@ -99,6 +99,12 @@ export interface IQueryOptions<ModelType = any> {
   maxTimeMS?: number;
 
   /**
+   * Disables the authorization hook for this query when set to true.
+   * @default false
+   */
+  disableAuthorization?: boolean;
+
+  /**
    * All other fields which are not explicitly defined will be available in the options object
    * but have no out-of-the-box functionality.
    */

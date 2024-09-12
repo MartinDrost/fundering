@@ -88,6 +88,7 @@ export abstract class CrudService<ModelType extends IModel> {
       limit: undefined,
       match: undefined,
       skip: undefined,
+      disableAuthorization: false,
     }))!;
   }
 
@@ -243,10 +244,12 @@ export abstract class CrudService<ModelType extends IModel> {
     let pipeline: Record<string, any>[] = [];
 
     // add a match stage for the authorization expression
-    const authorization =
-      (await this.callHook("onAuthorization", options ?? {})) ?? {};
-    if (Object.keys(authorization).length) {
-      pipeline.push({ $match: { $expr: authorization } });
+    if (!options.disableAuthorization) {
+      const authorization =
+        (await this.callHook("onAuthorization", options ?? {})) ?? {};
+      if (Object.keys(authorization).length) {
+        pipeline.push({ $match: { $expr: authorization } });
+      }
     }
 
     // add a unset stage to censor restricted fields
