@@ -244,7 +244,8 @@ export abstract class CrudService<ModelType extends IModel> {
     let pipeline: Record<string, any>[] = [];
 
     // add a match stage for the authorization expression
-    if (!options.disableAuthorization) {
+    // disable the authorization hook if the option is set to true and no population is requested
+    if (!options.disableAuthorization || options.populate) {
       const authorization =
         (await this.callHook("onAuthorization", options ?? {})) ?? {};
       if (Object.keys(authorization).length) {

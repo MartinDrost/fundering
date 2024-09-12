@@ -100,6 +100,7 @@ export interface IQueryOptions<ModelType = any> {
 
   /**
    * Disables the authorization hook for this query when set to true.
+   * This option is ignored when the populate option is truthy.
    * @default false
    */
   disableAuthorization?: boolean;
