@@ -88,7 +88,7 @@ export abstract class CrudService<ModelType extends IModel> {
       limit: undefined,
       match: undefined,
       skip: undefined,
-      disableAuthorization: false,
+      disableAuthorization: true,
     }))!;
   }
 
