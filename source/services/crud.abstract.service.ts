@@ -196,6 +196,7 @@ export abstract class CrudService<ModelType extends IModel> {
     const _options: IQueryOptions<ModelType> = {
       ...options,
       pipelines: [
+        ...(options?.pipelines ?? []),
         {
           $count: "count",
         },
