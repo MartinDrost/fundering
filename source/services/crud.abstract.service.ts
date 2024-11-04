@@ -72,12 +72,13 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
+    // back up the session if it exists
+    const session = options?.session;
+
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = options;
-    await model.save({
-      session: options?.session,
-    });
+    await model.save({ session });
 
     if (!options) {
       return model as Document<ModelType>;
@@ -89,6 +90,7 @@ export abstract class CrudService<ModelType extends IModel> {
       match: undefined,
       skip: undefined,
       disableAuthorization: true,
+      session,
     }))!;
   }
 
