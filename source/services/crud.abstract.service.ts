@@ -380,7 +380,7 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     // replace the models if it yields results
-    const models = await this.replace(conditions, payload, options);
+    const models = await this.merge(conditions, payload, options);
     if (models.length) {
       return models;
     }
