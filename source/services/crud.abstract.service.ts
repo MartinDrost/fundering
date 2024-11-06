@@ -75,6 +75,8 @@ export abstract class CrudService<ModelType extends IModel> {
     // back up the session if it exists
     const session = options?.session;
 
+    payload._id = (payload._id ?? payload.id) || undefined;
+
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = options;
