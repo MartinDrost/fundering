@@ -122,6 +122,11 @@ export abstract class CrudService<ModelType extends IModel> {
     } catch (error) {
       await session.abortTransaction();
       throw error;
+    } finally {
+      // end the session if it was created for the operation
+      if (!options?.session) {
+        await session.endSession();
+      }
     }
   }
 
@@ -368,6 +373,11 @@ export abstract class CrudService<ModelType extends IModel> {
     } catch (error) {
       await session.abortTransaction();
       throw error;
+    } finally {
+      // end the session if it was created for the operation
+      if (!options?.session) {
+        await session.endSession();
+      }
     }
   }
 
@@ -436,6 +446,11 @@ export abstract class CrudService<ModelType extends IModel> {
     } catch (error) {
       await session.abortTransaction();
       throw error;
+    } finally {
+      // end the session if it was created for the operation
+      if (!options?.session) {
+        await session.endSession();
+      }
     }
   }
 
@@ -540,6 +555,11 @@ export abstract class CrudService<ModelType extends IModel> {
     } catch (error) {
       await session.abortTransaction();
       throw error;
+    } finally {
+      // end the session if it was created for the operation
+      if (!options?.session) {
+        await session.endSession();
+      }
     }
   }
 
