@@ -497,7 +497,6 @@ export abstract class CrudService<ModelType extends IModel> {
 
         // marking the version number causes conflicts
         document.unmarkModified("__v");
-        delete document.__v;
 
         document.$locals.options = options;
 

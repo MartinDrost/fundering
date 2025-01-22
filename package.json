@@ -12,13 +12,13 @@
   },
   "devDependencies": {
     "@types/node": "20.12.3",
-    "mongoose": "8.2.4",
     "rimraf": "3.0.2",
+    "mongoose": "8.9.5",
     "tslint": "5.20.0",
     "typescript": "5.4.5"
   },
   "peerDependencies": {
-    "mongoose": ">= 8"
+    "mongoose": ">= 8.9.5"
   },
   "repository": "git+https://github.com/MartinDrost/fundering.git",
   "author": "MartinDrost",
