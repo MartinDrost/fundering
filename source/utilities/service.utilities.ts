@@ -360,14 +360,9 @@ export const populateOptionsToLookupPipeline = async (
       }
 
       if (populateOption.options?.sort) {
-        postLookupStages.push({
-          $sort: populateOption.options.sort.reduce((acc, field) => {
-            const desc = field.startsWith("-");
-            const cleanField = desc ? field.replace("-", "") : field;
-            acc[cleanField] = desc ? -1 : 1;
-            return acc;
-          }, {}),
-        });
+        postLookupStages.push(
+          ...optionToPipeline.sort(populateOption.options.sort)
+        );
       }
 
       if (populateOption.options?.skip) {
@@ -603,12 +598,22 @@ export const optionToPipeline = {
    * @param sort
    * @returns
    */
-  sort: (sort?: string[]) => {
+  sort: (
+    sort?: string[] | Record<string, 1 | -1> | string
+  ): PipelineStage.Sort[] => {
+    if (typeof sort === "object" && !Array.isArray(sort)) {
+      return [{ $sort: sort }];
+    }
+
+    if (typeof sort === "string") {
+      sort = [sort];
+    }
+
     if (!sort?.length) {
       return [];
     }
 
-    const $sort: Record<string, number> = {};
+    const $sort: Record<string, 1 | -1> = {};
     sort?.forEach((field) => {
       const desc = field.startsWith("-");
       const cleanField = desc ? field.replace("-", "") : field;
