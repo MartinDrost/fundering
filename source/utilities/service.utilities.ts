@@ -563,7 +563,7 @@ export const hydrateList = async (
       continue;
     }
 
-    const model = service._model.hydrate(cursor) as Document<any>;
+    const model = service._model.hydrate({ ...cursor }) as Document<any>;
     const virtuals = (service._model.schema as any).virtuals;
     for (const field of Object.keys(virtuals)) {
       const virtual = virtuals[field];
@@ -571,13 +571,13 @@ export const hydrateList = async (
         continue;
       }
       if (Array.isArray(cursor[field])) {
-        model[field] = hydrateList(
+        model[field] = await hydrateList(
           cursor[field],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)
         );
       } else {
-        model[field] = hydrateList(
+        model[field] = await hydrateList(
           [cursor[field]],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)

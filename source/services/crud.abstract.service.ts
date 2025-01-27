@@ -8,7 +8,6 @@ import {
   deepMerge,
   getDeepestValues,
   getDeepKeys,
-  getPopulateOptions,
   getShallowLookupPipeline,
   hydrateList,
   optionToPipeline,
