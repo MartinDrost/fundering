@@ -255,7 +255,10 @@ const buildPopulateOptions = async (
       path: populateOption.path,
       select: populateOption.select,
       match: {
-        $and: [populateOption.match ?? {}, { $expr: onAuthorization ?? {} }],
+        $and: [
+          castConditions(populateOption.match ?? {}, _service),
+          { $expr: onAuthorization ?? {} },
+        ],
       },
       perDocumentLimit: +(populateOption.limit ?? 0) || undefined,
       options: {
