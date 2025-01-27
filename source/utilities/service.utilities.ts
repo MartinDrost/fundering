@@ -1,5 +1,11 @@
 import { ObjectId } from "bson";
-import { Document, isValidObjectId, PopulateOptions, Types } from "mongoose";
+import {
+  Document,
+  isValidObjectId,
+  PipelineStage,
+  PopulateOptions,
+  Types,
+} from "mongoose";
 import { castableOperators } from "../constants/castable-operators";
 import { IPopulateOptions } from "../interfaces/populate-options.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
@@ -177,20 +183,12 @@ export const getShallowLookupPipeline = async (
  */
 export const getPopulateOptions = async (
   service: CrudService<any>,
-  options: IQueryOptions,
-  allowedTime: number,
-  startTime: number
+  options: IQueryOptions
 ): Promise<PopulateOptions[]> => {
   if (!options.populate) {
     return [];
   }
-  return buildPopulateOptions(
-    options.populate,
-    service,
-    options,
-    allowedTime,
-    startTime
-  );
+  return buildPopulateOptions(options.populate, service, options);
 };
 
 /**
@@ -202,9 +200,7 @@ export const getPopulateOptions = async (
 const buildPopulateOptions = async (
   populateStructure: (string | IPopulateOptions)[],
   service: CrudService<any>,
-  options: IQueryOptions | undefined = undefined,
-  allowedTime: number,
-  startTime: number
+  options: IQueryOptions | undefined = undefined
 ) => {
   // if an empty populate array has been provided, populate the root
   if (populateStructure?.length === 0) {
@@ -246,15 +242,21 @@ const buildPopulateOptions = async (
     }
 
     // get any authorization expressions for the related field
-    const $expr: Expression | undefined = await _service.callHook(
+    const onAuthorization: Expression | undefined = await _service.callHook(
       "onAuthorization",
       options ?? {}
     );
     const unsets = await _service.callHook("onCensor", options ?? {});
     populate.push({
+      model: _service._model,
+      localField: virtual.options.localField,
+      foreignField: virtual.options.foreignField,
+      justOne: virtual.options.justOne,
       path: populateOption.path,
       select: populateOption.select,
-      match: { $and: [populateOption.match ?? {}, { $expr: $expr ?? {} }] },
+      match: {
+        $and: [populateOption.match ?? {}, { $expr: onAuthorization ?? {} }],
+      },
       perDocumentLimit: +(populateOption.limit ?? 0) || undefined,
       options: {
         sort: populateOption.sort,
@@ -264,27 +266,8 @@ const buildPopulateOptions = async (
           return acc;
         }, {}),
       },
-      transform: (doc) => {
-        if (Date.now() - startTime > allowedTime) {
-          throw new Error("Schema population timed out");
-        }
-
-        // The transform function can be called for documents that are not found (null)
-        if (doc) {
-          // add options object to model $locals
-          doc.$locals = doc.$locals || {};
-          doc.$locals.options = options;
-        }
-        return doc;
-      },
       populate: populateOption.populate
-        ? await buildPopulateOptions(
-            populateOption.populate,
-            _service,
-            options,
-            allowedTime,
-            startTime
-          )
+        ? await buildPopulateOptions(populateOption.populate, _service, options)
         : undefined,
     });
   }
@@ -312,6 +295,136 @@ const mergePopulateOptions = (populateOptions: IPopulateOptions[]) => {
     }
   }
   return mergedOptions;
+};
+
+export const populateOptionsToLookupPipeline = async (
+  rawPopulateOptions: IQueryOptions["populate"],
+  service: CrudService<any>,
+  options: IQueryOptions | undefined = undefined
+): Promise<PipelineStage[] | undefined> => {
+  if (!rawPopulateOptions) {
+    return undefined;
+  }
+
+  const builtPopulateOptions = await buildPopulateOptions(
+    rawPopulateOptions,
+    service,
+    options
+  );
+
+  const buildRecursiveLookup = (populateOptions: PopulateOptions[]) => {
+    const stages: (
+      | PipelineStage.Match
+      | PipelineStage.Project
+      | PipelineStage.Lookup
+      | PipelineStage.Sort
+      | PipelineStage.Skip
+      | PipelineStage.Limit
+      | PipelineStage.Unwind
+    )[] = [];
+    for (const populateOption of populateOptions) {
+      const from =
+        typeof populateOption.model === "string"
+          ? populateOption.model
+          : populateOption.model?.collection.collectionName;
+
+      if (!from) {
+        continue;
+      }
+
+      const postLookupStages: (
+        | PipelineStage.Match
+        | PipelineStage.Project
+        | PipelineStage.Lookup
+        | PipelineStage.Sort
+        | PipelineStage.Skip
+        | PipelineStage.Limit
+        | PipelineStage.Unwind
+      )[] = [];
+
+      // the projection field contains the censored fields. We need to remove them from the projection
+      // before performing the rest of the pipeline
+      if (populateOption.options?.projection) {
+        postLookupStages.push({
+          $project: populateOption.options.projection as Record<string, any>,
+        });
+      }
+
+      if (populateOption.match) {
+        postLookupStages.push({
+          $match: populateOption.match,
+        });
+      }
+
+      if (populateOption.options?.sort) {
+        postLookupStages.push({
+          $sort: populateOption.options.sort.reduce((acc, field) => {
+            const desc = field.startsWith("-");
+            const cleanField = desc ? field.replace("-", "") : field;
+            acc[cleanField] = desc ? -1 : 1;
+            return acc;
+          }, {}),
+        });
+      }
+
+      if (populateOption.options?.skip) {
+        postLookupStages.push({
+          $skip: populateOption.options.skip,
+        });
+      }
+
+      if (
+        populateOption.options?.perDocumentLimit &&
+        populateOption.justOne !== true
+      ) {
+        postLookupStages.push({
+          $limit: populateOption.options.perDocumentLimit,
+        });
+      }
+      if (populateOption.justOne) {
+        postLookupStages.push({
+          $limit: 1,
+        });
+      }
+
+      if (populateOption.select) {
+        postLookupStages.push({
+          $project: populateOption.select.reduce((acc, field) => {
+            acc[field] = 1;
+            return acc;
+          }, {}),
+        });
+      }
+
+      stages.push({
+        $lookup: {
+          from,
+          localField: populateOption.localField,
+          foreignField: populateOption.foreignField,
+          as: populateOption.path,
+          pipeline: [
+            ...postLookupStages,
+            ...buildRecursiveLookup(
+              (populateOption.populate as PopulateOptions[]) ?? []
+            ),
+          ],
+        },
+      });
+
+      // unwind the looked up field if justOne is true
+      if (populateOption.justOne) {
+        stages.push({
+          $unwind: {
+            path: `$${populateOption.path}`,
+            preserveNullAndEmptyArrays: true,
+          },
+        });
+      }
+    }
+
+    return stages;
+  };
+  return buildRecursiveLookup(builtPopulateOptions);
 };
 
 /**
@@ -435,24 +548,12 @@ export const castConditions = (
 export const hydrateList = async (
   cursors: any[],
   service: CrudService<any>,
-  allowedTime: number,
-  options?: IQueryOptions
+  allowedTime: number
 ) => {
   // start timeout timer
   const startTime = Date.now();
   if (allowedTime <= 0) {
     throw new Error("Schema hydration timed out");
-  }
-
-  // concatenate the population pipeline
-  let populateOptions: PopulateOptions[] = [];
-  if (options?.populate !== undefined) {
-    populateOptions = await getPopulateOptions(
-      service,
-      options,
-      allowedTime,
-      startTime
-    );
   }
 
   const models: any[] = [];
@@ -461,6 +562,7 @@ export const hydrateList = async (
       continue;
     }
 
+    const model = service._model.hydrate(cursor) as Document<any>;
     const virtuals = (service._model.schema as any).virtuals;
     for (const field of Object.keys(virtuals)) {
       const virtual = virtuals[field];
@@ -468,13 +570,13 @@ export const hydrateList = async (
         continue;
       }
       if (Array.isArray(cursor[field])) {
-        cursor[field] = hydrateList(
+        model[field] = hydrateList(
           cursor[field],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)
         );
       } else {
-        cursor[field] = hydrateList(
+        model[field] = hydrateList(
           [cursor[field]],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)
@@ -482,11 +584,7 @@ export const hydrateList = async (
       }
     }
 
-    models.push(
-      await (service._model.hydrate(cursor) as Document<any>).populate(
-        populateOptions
-      )
-    );
+    models.push(model);
   }
   return models;
 };

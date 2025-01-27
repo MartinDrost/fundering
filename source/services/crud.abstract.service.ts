@@ -1,4 +1,4 @@
-import { Model, Schema } from "mongoose";
+import { Model, PopulateOptions, Schema } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -8,9 +8,11 @@ import {
   deepMerge,
   getDeepestValues,
   getDeepKeys,
+  getPopulateOptions,
   getShallowLookupPipeline,
   hydrateList,
   optionToPipeline,
+  populateOptionsToLookupPipeline,
 } from "../utilities/service.utilities";
 
 const defaultMaxTime = 10000;
@@ -187,8 +189,7 @@ export abstract class CrudService<ModelType extends IModel> {
     return hydrateList(
       cursors,
       this,
-      (options?.maxTimeMS ?? defaultMaxTime) - (Date.now() - startTime),
-      options
+      (options?.maxTimeMS ?? defaultMaxTime) - (Date.now() - startTime)
     );
   }
 
@@ -320,6 +321,16 @@ export abstract class CrudService<ModelType extends IModel> {
 
     // set projection fields based on select options
     pipeline = pipeline.concat(optionToPipeline.select(options.select));
+
+    // populate the fields based on the populate options
+    const populateStages = await populateOptionsToLookupPipeline(
+      options.populate,
+      this,
+      options
+    );
+    if (populateStages?.length) {
+      pipeline.push(...populateStages);
+    }
 
     // execute aggregate with the built pipeline and the one provided through options
     return this._model
