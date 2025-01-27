@@ -259,7 +259,10 @@ const buildPopulateOptions = async (
       },
       perDocumentLimit: +(populateOption.limit ?? 0) || undefined,
       options: {
-        sort: populateOption.sort,
+        sort:
+          typeof populateOption.sort === "string"
+            ? [populateOption.sort]
+            : populateOption.sort,
         skip: +(populateOption.skip ?? 0) || undefined,
         projection: unsets?.reduce((acc, unset) => {
           acc[unset] = 0;
