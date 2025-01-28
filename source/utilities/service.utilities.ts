@@ -327,6 +327,7 @@ export const populateOptionsToLookupPipeline = async (
       | PipelineStage.Skip
       | PipelineStage.Limit
       | PipelineStage.Unwind
+      | PipelineStage.AddFields
     )[] = [];
     for (const populateOption of populateOptions) {
       const from =
@@ -346,6 +347,7 @@ export const populateOptionsToLookupPipeline = async (
         | PipelineStage.Skip
         | PipelineStage.Limit
         | PipelineStage.Unwind
+        | PipelineStage.AddFields
       )[] = [];
 
       // the projection field contains the censored fields. We need to remove them from the projection
@@ -418,6 +420,13 @@ export const populateOptionsToLookupPipeline = async (
           $unwind: {
             path: `$${populateOption.path}`,
             preserveNullAndEmptyArrays: true,
+          },
+        });
+        stages.push({
+          $addFields: {
+            [populateOption.path]: {
+              $ifNull: [`$${populateOption.path}`, null],
+            },
           },
         });
       }
@@ -567,10 +576,13 @@ export const hydrateList = (
     const hydratedVirtualsByField: Record<string, any> = {};
     for (const field of Object.keys(virtuals)) {
       const virtual = virtuals[field];
-      if (!virtual.options.ref || [undefined, null].includes(cursor[field])) {
+      if (!virtual.options.ref || cursor[field] === undefined) {
         continue;
       }
-      if (Array.isArray(cursor[field])) {
+
+      if (cursor[field] === null) {
+        hydratedVirtualsByField[field] = null;
+      } else if (Array.isArray(cursor[field])) {
         hydratedVirtualsByField[field] = hydrateList(
           cursor[field],
           CrudService.serviceMap[virtual?.options?.ref],
@@ -585,7 +597,7 @@ export const hydrateList = (
       }
     }
 
-    const model = service._model.hydrate({ ...cursor }) as Document<any>;
+    const model = service._model.hydrate(cursor) as Document<any>;
     for (const field of Object.keys(hydratedVirtualsByField)) {
       model[field] = hydratedVirtualsByField[field];
     }
