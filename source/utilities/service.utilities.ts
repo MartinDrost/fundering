@@ -350,7 +350,10 @@ export const populateOptionsToLookupPipeline = async (
 
       // the projection field contains the censored fields. We need to remove them from the projection
       // before performing the rest of the pipeline
-      if (populateOption.options?.projection) {
+      if (
+        populateOption.options?.projection &&
+        Object.keys(populateOption.options.projection).length
+      ) {
         postLookupStages.push({
           $project: populateOption.options.projection as Record<string, any>,
         });
@@ -388,13 +391,10 @@ export const populateOptionsToLookupPipeline = async (
         });
       }
 
-      if (populateOption.select) {
-        postLookupStages.push({
-          $project: populateOption.select.reduce((acc, field) => {
-            acc[field] = 1;
-            return acc;
-          }, {}),
-        });
+      if (populateOption.select?.length) {
+        postLookupStages.push(
+          ...optionToPipeline.select(populateOption.select)
+        );
       }
 
       stages.push({
@@ -672,7 +672,7 @@ export const optionToPipeline = {
    * @param select
    * @returns
    */
-  select: (select?: string[]) => {
+  select: (select?: string[]): PipelineStage.Project[] => {
     const projection: Record<string, any> = {};
     for (const path of select ?? []) {
       let reference = projection;
