@@ -546,7 +546,7 @@ export const castConditions = (
  * @param cursors
  * @param service
  */
-export const hydrateList = async (
+export const hydrateList = (
   cursors: any[],
   service: CrudService<any>,
   allowedTime: number
@@ -563,26 +563,31 @@ export const hydrateList = async (
       continue;
     }
 
-    const model = service._model.hydrate({ ...cursor }) as Document<any>;
     const virtuals = (service._model.schema as any).virtuals;
+    const hydratedVirtualsByField: Record<string, any> = {};
     for (const field of Object.keys(virtuals)) {
       const virtual = virtuals[field];
       if (!virtual.options.ref || [undefined, null].includes(cursor[field])) {
         continue;
       }
       if (Array.isArray(cursor[field])) {
-        model[field] = await hydrateList(
+        hydratedVirtualsByField[field] = hydrateList(
           cursor[field],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)
         );
       } else {
-        model[field] = await hydrateList(
+        hydratedVirtualsByField[field] = hydrateList(
           [cursor[field]],
           CrudService.serviceMap[virtual?.options?.ref],
           allowedTime - (Date.now() - startTime)
         )[0];
       }
+    }
+
+    const model = service._model.hydrate({ ...cursor }) as Document<any>;
+    for (const field of Object.keys(hydratedVirtualsByField)) {
+      model[field] = hydratedVirtualsByField[field];
     }
 
     models.push(model);
