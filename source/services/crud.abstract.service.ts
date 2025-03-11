@@ -111,7 +111,9 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     const session = options?.session || (await this._model.startSession());
-    session.startTransaction();
+    if (!session.inTransaction()) {
+      session.startTransaction();
+    }
 
     try {
       const documents = await Promise.all(
@@ -369,7 +371,9 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     const session = options?.session || (await this._model.startSession());
-    session.startTransaction();
+    if (!session.inTransaction()) {
+      session.startTransaction();
+    }
 
     try {
       const documents = await Promise.all(
@@ -442,7 +446,9 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     const session = options?.session || (await this._model.startSession());
-    session.startTransaction();
+    if (!session.inTransaction()) {
+      session.startTransaction();
+    }
 
     try {
       const documents = await Promise.all(
@@ -550,7 +556,9 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
     const session = options?.session || (await this._model.startSession());
-    session.startTransaction();
+    if (!session.inTransaction()) {
+      session.startTransaction();
+    }
 
     try {
       const documents = await Promise.all(
