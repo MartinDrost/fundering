@@ -119,7 +119,9 @@ export abstract class CrudService<ModelType extends IModel> {
       const documents = await Promise.all(
         payloads.map((payload) => this.create(payload, { ...options, session }))
       );
-      await session.commitTransaction();
+      if (!options?.session) {
+        await session.commitTransaction();
+      }
 
       return documents;
     } catch (error) {
@@ -381,7 +383,9 @@ export abstract class CrudService<ModelType extends IModel> {
           this.upsertModel(payload, { ...options, session })
         )
       );
-      await session.commitTransaction();
+      if (!options?.session) {
+        await session.commitTransaction();
+      }
 
       return documents;
     } catch (error) {
@@ -456,7 +460,9 @@ export abstract class CrudService<ModelType extends IModel> {
           this.replaceModel(payload, { ...options, session })
         )
       );
-      await session.commitTransaction();
+      if (!options?.session) {
+        await session.commitTransaction();
+      }
 
       return documents;
     } catch (error) {
@@ -566,7 +572,9 @@ export abstract class CrudService<ModelType extends IModel> {
           this.mergeModel(payload, { ...options, session })
         )
       );
-      await session.commitTransaction();
+      if (!options?.session) {
+        await session.commitTransaction();
+      }
 
       return documents;
     } catch (error) {
@@ -621,7 +629,7 @@ export abstract class CrudService<ModelType extends IModel> {
   ): Promise<Document<ModelType>[]> {
     const selection = await this.find(conditions, options);
     for (const existing of selection) {
-      await existing.deleteOne({ session: options?.session } as any);
+      await existing.deleteOne({ session: options?.session });
     }
 
     return selection;
