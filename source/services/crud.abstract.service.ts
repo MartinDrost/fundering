@@ -13,9 +13,12 @@ import {
   optionToPipeline,
   populateOptionsToLookupPipeline,
 } from "../utilities/service.utilities";
+import { logError } from "../utilities/log-error.utilities";
 
 const defaultMaxTime = 10000;
 export abstract class CrudService<ModelType extends IModel> {
+  public static verbose = false;
+
   /**
    * A record mapping model names to their respective services.
    */
@@ -125,6 +128,10 @@ export abstract class CrudService<ModelType extends IModel> {
 
       return documents;
     } catch (error) {
+      if (CrudService.verbose) {
+        logError(error, `${CrudService.name}.createMany`);
+      }
+
       await session.abortTransaction();
       throw error;
     } finally {
@@ -389,6 +396,10 @@ export abstract class CrudService<ModelType extends IModel> {
 
       return documents;
     } catch (error) {
+      if (CrudService.verbose) {
+        logError(error, `${CrudService.name}.upsertModels`);
+      }
+
       await session.abortTransaction();
       throw error;
     } finally {
@@ -466,6 +477,10 @@ export abstract class CrudService<ModelType extends IModel> {
 
       return documents;
     } catch (error) {
+      if (CrudService.verbose) {
+        logError(error, `${CrudService.name}.replaceModels`);
+      }
+
       await session.abortTransaction();
       throw error;
     } finally {
@@ -578,6 +593,10 @@ export abstract class CrudService<ModelType extends IModel> {
 
       return documents;
     } catch (error) {
+      if (CrudService.verbose) {
+        logError(error, `${CrudService.name}.mergeModels`);
+      }
+
       await session.abortTransaction();
       throw error;
     } finally {
