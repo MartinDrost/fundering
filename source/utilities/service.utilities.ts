@@ -1,4 +1,4 @@
-import { ObjectId } from "bson";
+import { BSON, ObjectId } from "bson";
 import {
   Document,
   isValidObjectId,
@@ -513,9 +513,13 @@ export const castConditions = (
           // cast to the collected field type
           // call the function recursively if the field is an object
           if (value instanceof Object) {
+            if (value instanceof Types.ObjectId) {
+              return value;
+            }
+
             return castConditions(value, deepService, type);
           } else if (type === "objectid" && isValidObjectId(value)) {
-            return ObjectId.createFromHexString(value);
+            return BSON.ObjectId.isValid(value.toString());
           } else if (type === "string") {
             return value.toString();
           } else if (type === "number") {
