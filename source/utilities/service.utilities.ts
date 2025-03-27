@@ -519,7 +519,7 @@ export const castConditions = (
 
             return castConditions(value, deepService, type);
           } else if (type === "objectid" && isValidObjectId(value)) {
-            return BSON.ObjectId.isValid(value.toString());
+            return ObjectId.createFromHexString(value);
           } else if (type === "string") {
             return value.toString();
           } else if (type === "number") {
