@@ -10,4 +10,12 @@ export const castableOperators = [
   "$gte",
   "$exists",
   "$size",
+  "$in",
+  "$nin",
+  "$all",
+  "$elemMatch",
+  "$and",
+  "$or",
+  "$not",
+  "$nor",
 ];

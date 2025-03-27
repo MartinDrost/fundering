@@ -443,111 +443,103 @@ export const populateOptionsToLookupPipeline = async (
  * @param keys
  */
 export const castConditions = (
-  conditions: Conditions,
-  service: CrudService<any>
+  conditions: Conditions, // f.e. { "name.value": "john", $or: [ { "age": { $gt: 18 } }, { "age": { $lt: 30 } } ] }
+  service: CrudService<any>,
+  baseType?: string
 ): Conditions => {
-  // get the keys of the object
-  let keys = getDeepKeys(conditions, [], [], "|");
+  const reference = {};
+  for (const conditionField of Object.keys(conditions)) {
+    let type: string | undefined = baseType;
 
-  // filter out shortened versions of extended paths so we pass keys just once
-  keys = keys.filter(
-    (key) =>
-      keys.filter(
-        (v) =>
-          v.startsWith(key) && v.split("|").length !== key.split("|").length
-      ).length === 0
-  );
+    // break out of the parent loop when we encounter an ObjectId instance
+    if (conditions[conditionField] instanceof Types.ObjectId) {
+      reference[conditionField] = conditions[conditionField];
+      break;
+    }
 
-  const castedConditions = deepCopy(conditions);
-  for (const key of keys) {
-    let reference = castedConditions;
-    let type: string | undefined = undefined;
-    const conditionFields = key.split("|");
-    for (let i = 0; i < conditionFields.length; i++) {
-      const conditionField = conditionFields[i];
-      const schemaFields = conditionField.split(".");
+    let deepService = service;
+    let schemaReference = deepService._model.schema as any;
+    const schemaFields = conditionField.split(".");
+    for (let j = 0; j < schemaFields.length; j++) {
+      const schemaField = schemaFields[j];
+      schemaReference =
+        schemaReference?.paths?.[schemaField] ||
+        schemaReference?.options?.type?.paths?.[schemaField];
 
-      // break out of the parent loop when we encounter an ObjectId instance
-      if (reference[conditionField] instanceof Types.ObjectId) {
-        break;
+      const virtual = (deepService._model.schema as any).virtuals[schemaField];
+      if (virtual?.options?.ref) {
+        deepService =
+          CrudService.serviceMap[virtual?.options?.ref] || deepService;
+        schemaReference = deepService._model.schema as any;
+        continue;
       }
-      let deepService = service;
-      let schemaReference = deepService._model.schema as any;
-      for (let j = 0; j < schemaFields.length; j++) {
-        const schemaField = schemaFields[j];
-        schemaReference =
-          schemaReference?.paths?.[schemaField] ||
-          schemaReference?.options?.type?.paths?.[schemaField];
 
-        const virtual = (deepService._model.schema as any).virtuals[
-          schemaField
-        ];
-        if (virtual?.options?.ref) {
-          deepService =
-            CrudService.serviceMap[virtual?.options?.ref] || deepService;
-          schemaReference = deepService._model.schema as any;
+      // determine the type of the field based on the schema and cast the value if necessary
+      type =
+        schemaReference?.$embeddedSchemaType?.instance ||
+        schemaReference?.instance ||
+        type;
+
+      type = type?.toLowerCase();
+
+      // cast the final field from the path
+      if (j + 1 === schemaFields.length) {
+        if (
+          conditions[conditionField] === null ||
+          conditions[conditionField] === undefined
+        ) {
+          reference[conditionField] = conditions[conditionField];
           continue;
         }
 
-        // determine the type of the field based on the schema and cast the value if necessary
-        type =
-          schemaReference?.$embeddedSchemaType?.instance ||
-          schemaReference?.instance ||
-          type;
-
-        type = type?.toLowerCase();
-
-        // cast the final field from the path
-        if (
-          i + 1 === conditionFields.length &&
-          j + 1 === schemaFields.length &&
-          reference[conditionField] !== null &&
-          reference[conditionField] !== undefined
-        ) {
-          // check if we're casting a mongodb operator directly
-          if (schemaField.startsWith("$")) {
-            // only cast supported operators
-            if (!castableOperators.includes(schemaField)) {
-              continue;
-            }
-
-            // set the types of typed operators
-            if (schemaField === "$exists") {
-              type = "boolean";
-            }
-            if (schemaField === "$size") {
-              type = "number";
-            }
+        // check if we're casting a mongodb operator directly
+        if (schemaField.startsWith("$")) {
+          // only cast supported operators
+          if (!castableOperators.includes(schemaField)) {
+            reference[conditionField] = conditions[conditionField];
+            continue;
           }
 
-          // cast to the collected field type
-          if (
-            type === "objectid" &&
-            isValidObjectId(reference[conditionField])
-          ) {
-            reference[conditionField] = ObjectId.createFromHexString(
-              reference[conditionField]
-            );
-          } else if (type === "string") {
-            reference[conditionField] = reference[conditionField].toString();
-          } else if (type === "number") {
-            reference[conditionField] = +reference[conditionField] || 0;
-          } else if (type === "boolean") {
-            reference[conditionField] = ["1", "true"].includes(
-              (reference[conditionField] + "").toLowerCase()
-            );
-          } else if (type === "date") {
-            reference[conditionField] = new Date(reference[conditionField]);
+          // set the types of typed operators
+          if (schemaField === "$exists") {
+            type = "boolean";
+          }
+          if (schemaField === "$size") {
+            type = "number";
           }
         }
-      }
 
-      // move the reference deeper into the conditions object
-      reference = reference[conditionField];
+        const castValue = (value: any) => {
+          // cast to the collected field type
+          // call the function recursively if the field is an object
+          if (value instanceof Object) {
+            return castConditions(value, deepService, type);
+          } else if (type === "objectid" && isValidObjectId(value)) {
+            return ObjectId.createFromHexString(value);
+          } else if (type === "string") {
+            return value.toString();
+          } else if (type === "number") {
+            return +value || 0;
+          } else if (type === "boolean") {
+            return ["1", "true"].includes((value + "").toLowerCase());
+          } else if (type === "date") {
+            return new Date(value);
+          }
+
+          return value;
+        };
+
+        const value = conditions[conditionField];
+        if (Array.isArray(value)) {
+          reference[conditionField] = value.map(castValue);
+        } else {
+          reference[conditionField] = castValue(value);
+        }
+      }
     }
   }
 
-  return castedConditions;
+  return reference;
 };
 
 /**
