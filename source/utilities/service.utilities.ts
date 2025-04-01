@@ -447,12 +447,44 @@ export const castConditions = (
   service: CrudService<any>,
   baseType?: string
 ): Conditions => {
+  const castValue = (
+    value: any,
+    deepService: CrudService<any>,
+    type?: string
+  ) => {
+    // cast to the collected field type
+    // call the function recursively if the field is an object
+    if (value instanceof Object) {
+      if (value instanceof Types.ObjectId) {
+        return value;
+      }
+
+      return castConditions(value, deepService, type);
+    } else if (type === "objectid" && isValidObjectId(value)) {
+      return ObjectId.createFromHexString(value);
+    } else if (type === "string") {
+      return value.toString();
+    } else if (type === "number") {
+      return +value || 0;
+    } else if (type === "boolean") {
+      return ["1", "true"].includes((value + "").toLowerCase());
+    } else if (type === "date") {
+      return new Date(value);
+    }
+
+    return value;
+  };
+
   const reference = {};
   for (const conditionField of Object.keys(conditions)) {
     let type: string | undefined = baseType;
 
     // break out of the parent loop when we encounter an ObjectId instance
-    if (conditions[conditionField] instanceof Types.ObjectId) {
+    if (
+      conditions[conditionField] instanceof Types.ObjectId ||
+      conditions[conditionField] === null ||
+      conditions[conditionField] === undefined
+    ) {
       reference[conditionField] = conditions[conditionField];
       continue;
     }
@@ -484,60 +516,21 @@ export const castConditions = (
 
       // cast the final field from the path
       if (j + 1 === schemaFields.length) {
-        if (
-          conditions[conditionField] === null ||
-          conditions[conditionField] === undefined
-        ) {
-          reference[conditionField] = conditions[conditionField];
-          continue;
+        // set the types of typed operators
+        if (schemaField === "$exists") {
+          type = "boolean";
         }
-
-        // check if we're casting a mongodb operator directly
-        if (schemaField.startsWith("$")) {
-          // only cast supported operators
-          if (!castableOperators.includes(schemaField)) {
-            reference[conditionField] = conditions[conditionField];
-            continue;
-          }
-
-          // set the types of typed operators
-          if (schemaField === "$exists") {
-            type = "boolean";
-          }
-          if (schemaField === "$size") {
-            type = "number";
-          }
+        if (schemaField === "$size") {
+          type = "number";
         }
-
-        const castValue = (value: any) => {
-          // cast to the collected field type
-          // call the function recursively if the field is an object
-          if (value instanceof Object) {
-            if (value instanceof Types.ObjectId) {
-              return value;
-            }
-
-            return castConditions(value, deepService, type);
-          } else if (type === "objectid" && isValidObjectId(value)) {
-            return ObjectId.createFromHexString(value);
-          } else if (type === "string") {
-            return value.toString();
-          } else if (type === "number") {
-            return +value || 0;
-          } else if (type === "boolean") {
-            return ["1", "true"].includes((value + "").toLowerCase());
-          } else if (type === "date") {
-            return new Date(value);
-          }
-
-          return value;
-        };
 
         const value = conditions[conditionField];
         if (Array.isArray(value)) {
-          reference[conditionField] = value.map(castValue);
+          reference[conditionField] = value.map((item) =>
+            castValue(item, deepService, type)
+          );
         } else {
-          reference[conditionField] = castValue(value);
+          reference[conditionField] = castValue(value, deepService, type);
         }
       }
     }
