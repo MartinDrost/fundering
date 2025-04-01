@@ -455,20 +455,29 @@ export const castConditions = (
     // cast to the collected field type
     // call the function recursively if the field is an object
     if (value instanceof Object) {
-      if (value instanceof Types.ObjectId) {
+      if (
+        value instanceof Types.ObjectId ||
+        value instanceof Date ||
+        value instanceof Types.Buffer
+      ) {
         return value;
       }
 
       return castConditions(value, deepService, type);
-    } else if (type === "objectid" && isValidObjectId(value)) {
+    }
+    if (type === "objectid" && isValidObjectId(value)) {
       return ObjectId.createFromHexString(value);
-    } else if (type === "string") {
+    }
+    if (type === "string") {
       return value.toString();
-    } else if (type === "number") {
+    }
+    if (type === "number") {
       return +value || 0;
-    } else if (type === "boolean") {
+    }
+    if (type === "boolean") {
       return ["1", "true"].includes((value + "").toLowerCase());
-    } else if (type === "date") {
+    }
+    if (type === "date") {
       return new Date(value);
     }
 
