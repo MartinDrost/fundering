@@ -454,7 +454,7 @@ export const castConditions = (
     // break out of the parent loop when we encounter an ObjectId instance
     if (conditions[conditionField] instanceof Types.ObjectId) {
       reference[conditionField] = conditions[conditionField];
-      break;
+      continue;
     }
 
     let deepService = service;
