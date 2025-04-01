@@ -526,11 +526,19 @@ export const castConditions = (
       // cast the final field from the path
       if (j + 1 === schemaFields.length) {
         // set the types of typed operators
-        if (schemaField === "$exists") {
-          type = "boolean";
-        }
-        if (schemaField === "$size") {
-          type = "number";
+        if (schemaField.startsWith("$")) {
+          // only cast supported operators
+          if (!castableOperators.includes(schemaField)) {
+            reference[conditionField] = conditions[conditionField];
+            continue;
+          }
+
+          if (schemaField === "$exists") {
+            type = "boolean";
+          }
+          if (schemaField === "$size") {
+            type = "number";
+          }
         }
 
         const value = conditions[conditionField];

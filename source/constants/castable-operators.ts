@@ -13,7 +13,6 @@ export const castableOperators = [
   "$in",
   "$nin",
   "$all",
-  "$elemMatch",
   "$and",
   "$or",
   "$not",
