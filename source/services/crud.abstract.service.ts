@@ -1,4 +1,4 @@
-import { Model, PopulateOptions, Schema } from "mongoose";
+import { Model, PopulateOptions, Schema, Types } from "mongoose";
 import { IModel } from "../interfaces/model.interface";
 import { IQueryOptions } from "../interfaces/query-options.interface";
 import { Conditions } from "../types/conditions.type";
@@ -83,7 +83,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
     payload._id = (payload._id ?? payload.id) || undefined;
 
-    const model = await new this._model(payload);
+    const model: Document<ModelType> = await new this._model(payload);
     model.$locals = model.$locals || {};
     model.$locals.options = dereferencedOptions;
     await model.save({ session });
@@ -124,9 +124,11 @@ export abstract class CrudService<ModelType extends IModel> {
     dereferencedOptions.session = session;
 
     try {
-      const documents = await Promise.all(
-        payloads.map((payload) => this.create(payload, dereferencedOptions))
-      );
+      const documents: Document<ModelType>[] = [];
+      for (const payload of payloads) {
+        documents.push(await this.create(payload, dereferencedOptions));
+      }
+
       if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
@@ -403,11 +405,11 @@ export abstract class CrudService<ModelType extends IModel> {
     dereferencedOptions.session = session;
 
     try {
-      const documents = await Promise.all(
-        payloads.map((payload) =>
-          this.upsertModel(payload, dereferencedOptions)
-        )
-      );
+      const documents: Document<ModelType>[] = [];
+      for (const payload of payloads) {
+        documents.push(await this.upsertModel(payload, dereferencedOptions));
+      }
+
       if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
@@ -490,11 +492,11 @@ export abstract class CrudService<ModelType extends IModel> {
     dereferencedOptions.session = session;
 
     try {
-      const documents = await Promise.all(
-        payloads.map((payload) =>
-          this.replaceModel(payload, dereferencedOptions)
-        )
-      );
+      const documents: Document<ModelType>[] = [];
+      for (const payload of payloads) {
+        documents.push(await this.replaceModel(payload, dereferencedOptions));
+      }
+
       if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
@@ -615,9 +617,11 @@ export abstract class CrudService<ModelType extends IModel> {
     dereferencedOptions.session = session;
 
     try {
-      const documents = await Promise.all(
-        payloads.map((payload) => this.mergeModel(payload, dereferencedOptions))
-      );
+      const documents: Document<ModelType>[] = [];
+      for (const payload of payloads) {
+        documents.push(await this.mergeModel(payload, dereferencedOptions));
+      }
+
       if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
