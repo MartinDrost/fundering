@@ -537,40 +537,44 @@ export abstract class CrudService<ModelType extends IModel> {
     // make sure we're not merging a IDocument
     payload = (payload as any).toObject?.() ?? payload;
 
-    const existingModels = await this.find(conditions);
-    return Promise.all(
-      existingModels.map(async (existing) => {
-        const _payload = {
-          ...payload,
-          _id: existing._id,
-          id: existing.id,
-          __v: undefined,
-        };
+    const existingModels = await this.find(conditions, {
+      session: dereferencedOptions?.session,
+    });
+    const alteredModels: Document<ModelType>[] = [];
+    for (const existing of existingModels) {
+      const _payload = {
+        ...payload,
+        _id: existing._id,
+        id: existing.id,
+        __v: undefined,
+      };
 
-        let document = this._model.hydrate(_payload) as Document<ModelType>;
-        if (mergeCallback) {
-          document = (await mergeCallback(_payload, existing)) as any;
-        } else {
-          // mark changed paths as modified and define undefined values
-          for (const field of Object.keys(this._model.schema.paths)) {
-            _payload[field] = _payload[field] ?? null;
-            if (_payload[field] !== existing[field]) {
-              document.markModified(field);
-            }
+      let document = this._model.hydrate(_payload) as Document<ModelType>;
+      if (mergeCallback && document !== existing) {
+        document = this._model.hydrate(
+          await mergeCallback(_payload, existing.toObject())
+        ) as any;
+      } else {
+        // mark changed paths as modified and define undefined values
+        for (const field of Object.keys(this._model.schema.paths)) {
+          _payload[field] = _payload[field] ?? null;
+          if (_payload[field] !== existing[field]) {
+            document.markModified(field);
           }
         }
+      }
 
-        // marking the version number causes conflicts
-        document.unmarkModified("__v");
+      // marking the version number causes conflicts
+      document.unmarkModified("__v");
 
-        document.$locals.options = dereferencedOptions;
+      document.$locals.options = dereferencedOptions;
 
-        await document.save({ session: dereferencedOptions?.session });
-        return (
-          (await this.findById(document._id, dereferencedOptions)) ?? document
-        );
-      })
-    );
+      await document.save({ session: dereferencedOptions?.session });
+      alteredModels.push(
+        (await this.findById(document._id, dereferencedOptions)) ?? document
+      );
+    }
+    return alteredModels;
   }
 
   /**
