@@ -76,7 +76,8 @@ export function deepMerge<Type = Record<string, any>>(
       typeof value !== "object" ||
       Array.isArray(value) ||
       Object.entries(value).length === 0 ||
-      value instanceof Types.ObjectId
+      value instanceof Types.ObjectId ||
+      value instanceof Types.Subdocument
     ) {
       (source as any)[key] = value;
     } else {

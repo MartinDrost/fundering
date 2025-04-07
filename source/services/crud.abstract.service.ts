@@ -551,9 +551,7 @@ export abstract class CrudService<ModelType extends IModel> {
 
       let document = this._model.hydrate(_payload) as Document<ModelType>;
       if (mergeCallback && document !== existing) {
-        document = this._model.hydrate(
-          await mergeCallback(_payload, existing.toObject())
-        ) as any;
+        document = (await mergeCallback(_payload, existing)) as any;
       } else {
         // mark changed paths as modified and define undefined values
         for (const field of Object.keys(this._model.schema.paths)) {
