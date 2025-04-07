@@ -76,6 +76,8 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
+    const dereferencedOptions = { ...options };
+
     // back up the session if it exists
     const session = options?.session;
 
@@ -83,21 +85,20 @@ export abstract class CrudService<ModelType extends IModel> {
 
     const model = await new this._model(payload);
     model.$locals = model.$locals || {};
-    model.$locals.options = options;
+    model.$locals.options = dereferencedOptions;
     await model.save({ session });
 
-    if (!options) {
+    if (!dereferencedOptions) {
       return model as Document<ModelType>;
     }
 
-    return (await this.findById(model._id, {
-      ...options,
-      limit: undefined,
-      match: undefined,
-      skip: undefined,
-      disableAuthorization: true,
-      session,
-    }))!;
+    dereferencedOptions.limit = undefined;
+    dereferencedOptions.match = undefined;
+    dereferencedOptions.skip = undefined;
+    dereferencedOptions.disableAuthorization = true;
+    dereferencedOptions.session = session;
+
+    return (await this.findById(model._id, dereferencedOptions))!;
   }
 
   /**
@@ -113,16 +114,20 @@ export abstract class CrudService<ModelType extends IModel> {
     payloads: ModelType[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    const session = options?.session || (await this._model.startSession());
+    const dereferencedOptions = { ...options };
+    const session =
+      dereferencedOptions?.session || (await this._model.startSession());
     if (!session.inTransaction()) {
       session.startTransaction();
     }
 
+    dereferencedOptions.session = session;
+
     try {
       const documents = await Promise.all(
-        payloads.map((payload) => this.create(payload, { ...options, session }))
+        payloads.map((payload) => this.create(payload, dereferencedOptions))
       );
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
 
@@ -136,7 +141,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.endSession();
       }
     }
@@ -151,7 +156,8 @@ export abstract class CrudService<ModelType extends IModel> {
     id: any,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType> | null> {
-    return this.findOne({ _id: id }, options);
+    const dereferencedOptions = { ...options };
+    return this.findOne({ _id: id }, dereferencedOptions);
   }
 
   /**
@@ -163,7 +169,8 @@ export abstract class CrudService<ModelType extends IModel> {
     ids: any[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    return this.find({ _id: { $in: ids } }, options);
+    const dereferencedOptions = { ...options };
+    return this.find({ _id: { $in: ids } }, dereferencedOptions);
   }
 
   /**
@@ -175,11 +182,11 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType> | null> {
-    const _options: IQueryOptions<ModelType> = {
+    const dereferencedOptions: IQueryOptions<ModelType> = {
       ...options,
       limit: 1,
     };
-    return (await this.find(conditions, _options))[0] ?? null;
+    return (await this.find(conditions, dereferencedOptions))[0] ?? null;
   }
 
   /**
@@ -191,15 +198,17 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
+    const dereferencedOptions = { ...options };
     // log time to calculate the time remaining for hydration
     const startTime = Date.now();
 
     // execute the query and convert the results to models
-    const cursors = await this.query(conditions, options);
+    const cursors = await this.query(conditions, dereferencedOptions);
     return hydrateList(
       cursors,
       this,
-      (options?.maxTimeMS ?? defaultMaxTime) - (Date.now() - startTime)
+      (dereferencedOptions?.maxTimeMS ?? defaultMaxTime) -
+        (Date.now() - startTime)
     );
   }
 
@@ -213,7 +222,7 @@ export abstract class CrudService<ModelType extends IModel> {
     options?: IQueryOptions<ModelType>
   ): Promise<number> {
     // disable options that would limit the results or add redundant load
-    const _options: IQueryOptions<ModelType> = {
+    const dereferencedOptions: IQueryOptions<ModelType> = {
       ...options,
       pipelines: [
         ...(options?.pipelines ?? []),
@@ -232,9 +241,9 @@ export abstract class CrudService<ModelType extends IModel> {
     };
 
     const result: number =
-      (await this.query<{ count: number }>(conditions, _options))[0]?.count ??
-      0;
-    await this.callHook("postCount", result, _options ?? {});
+      (await this.query<{ count: number }>(conditions, dereferencedOptions))[0]
+        ?.count ?? 0;
+    await this.callHook("postCount", result, dereferencedOptions ?? {});
 
     return result;
   }
@@ -361,8 +370,13 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>> {
+    const dereferencedOptions = { ...options };
     return (
-      await this.upsert({ _id: payload._id || payload.id }, payload, options)
+      await this.upsert(
+        { _id: payload._id || payload.id },
+        payload,
+        dereferencedOptions
+      )
     )[0];
   }
 
@@ -379,18 +393,22 @@ export abstract class CrudService<ModelType extends IModel> {
     payloads: ModelType[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    const session = options?.session || (await this._model.startSession());
+    const dereferencedOptions = { ...options };
+    const session =
+      dereferencedOptions?.session || (await this._model.startSession());
     if (!session.inTransaction()) {
       session.startTransaction();
     }
 
+    dereferencedOptions.session = session;
+
     try {
       const documents = await Promise.all(
         payloads.map((payload) =>
-          this.upsertModel(payload, { ...options, session })
+          this.upsertModel(payload, dereferencedOptions)
         )
       );
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
 
@@ -404,7 +422,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.endSession();
       }
     }
@@ -420,13 +438,14 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: ModelType,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
+    const dereferencedOptions = { ...options };
     // replace the models if it yields results
-    const models = await this.merge(conditions, payload, options);
+    const models = await this.merge(conditions, payload, dereferencedOptions);
     if (models.length) {
       return models;
     }
 
-    const created = await this.create(payload, options);
+    const created = await this.create(payload, dereferencedOptions);
     return created ? [created] : [];
   }
 
@@ -436,10 +455,11 @@ export abstract class CrudService<ModelType extends IModel> {
    * @param options
    */
   async replaceModel(payload: ModelType, options?: IQueryOptions<ModelType>) {
+    const dereferencedOptions = { ...options };
     const updated = await this.replace(
       { _id: payload._id || payload.id },
       payload,
-      options
+      dereferencedOptions
     );
     if (!updated[0]) {
       throw new Error("No model found with the provided id");
@@ -460,18 +480,22 @@ export abstract class CrudService<ModelType extends IModel> {
     payloads: ModelType[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    const session = options?.session || (await this._model.startSession());
+    const dereferencedOptions = { ...options };
+    const session =
+      dereferencedOptions?.session || (await this._model.startSession());
     if (!session.inTransaction()) {
       session.startTransaction();
     }
 
+    dereferencedOptions.session = session;
+
     try {
       const documents = await Promise.all(
         payloads.map((payload) =>
-          this.replaceModel(payload, { ...options, session })
+          this.replaceModel(payload, dereferencedOptions)
         )
       );
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
 
@@ -485,7 +509,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.endSession();
       }
     }
@@ -506,6 +530,8 @@ export abstract class CrudService<ModelType extends IModel> {
       existing: ModelType
     ) => Promise<ModelType>
   ): Promise<Document<ModelType>[]> {
+    const dereferencedOptions = { ...options };
+
     // make sure we're not merging a IDocument
     payload = (payload as any).toObject?.() ?? payload;
 
@@ -535,10 +561,12 @@ export abstract class CrudService<ModelType extends IModel> {
         // marking the version number causes conflicts
         document.unmarkModified("__v");
 
-        document.$locals.options = options;
+        document.$locals.options = dereferencedOptions;
 
-        await document.save({ session: options?.session });
-        return (await this.findById(document._id, options)) ?? document;
+        await document.save({ session: dereferencedOptions?.session });
+        return (
+          (await this.findById(document._id, dereferencedOptions)) ?? document
+        );
       })
     );
   }
@@ -552,10 +580,11 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: Partial<ModelType>,
     options?: IQueryOptions<ModelType>
   ) {
+    const dereferencedOptions = { ...options };
     const updated = await this.merge(
       { _id: payload._id || payload.id },
       payload,
-      options
+      dereferencedOptions
     );
     if (!updated[0]) {
       throw new Error("No model found with the provided id");
@@ -576,18 +605,20 @@ export abstract class CrudService<ModelType extends IModel> {
     payloads: Partial<ModelType>[],
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    const session = options?.session || (await this._model.startSession());
+    const dereferencedOptions = { ...options };
+    const session =
+      dereferencedOptions?.session || (await this._model.startSession());
     if (!session.inTransaction()) {
       session.startTransaction();
     }
 
+    dereferencedOptions.session = session;
+
     try {
       const documents = await Promise.all(
-        payloads.map((payload) =>
-          this.mergeModel(payload, { ...options, session })
-        )
+        payloads.map((payload) => this.mergeModel(payload, dereferencedOptions))
       );
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.commitTransaction();
       }
 
@@ -601,7 +632,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!options?.session) {
+      if (!dereferencedOptions?.session) {
         await session.endSession();
       }
     }
@@ -617,10 +648,11 @@ export abstract class CrudService<ModelType extends IModel> {
     payload: Partial<ModelType>,
     options?: IQueryOptions<ModelType>
   ) {
+    const dereferencedOptions = { ...options };
     return this.replace(
       conditions,
       payload as ModelType,
-      options,
+      dereferencedOptions,
       async (payload, existing) => deepMerge<ModelType>(existing, payload)
     );
   }
@@ -634,7 +666,8 @@ export abstract class CrudService<ModelType extends IModel> {
     id: any,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType> | null> {
-    return (await this.delete({ _id: id }, options))[0];
+    const dereferencedOptions = { ...options };
+    return (await this.delete({ _id: id }, dereferencedOptions))[0];
   }
 
   /**
@@ -646,9 +679,10 @@ export abstract class CrudService<ModelType extends IModel> {
     conditions: Conditions<ModelType>,
     options?: IQueryOptions<ModelType>
   ): Promise<Document<ModelType>[]> {
-    const selection = await this.find(conditions, options);
+    const dereferencedOptions = { ...options };
+    const selection = await this.find(conditions, dereferencedOptions);
     for (const existing of selection) {
-      await existing.deleteOne({ session: options?.session });
+      await existing.deleteOne({ session: dereferencedOptions?.session });
     }
 
     return selection;
