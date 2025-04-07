@@ -129,7 +129,7 @@ export abstract class CrudService<ModelType extends IModel> {
         documents.push(await this.create(payload, dereferencedOptions));
       }
 
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.commitTransaction();
       }
 
@@ -143,7 +143,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.endSession();
       }
     }
@@ -410,7 +410,7 @@ export abstract class CrudService<ModelType extends IModel> {
         documents.push(await this.upsertModel(payload, dereferencedOptions));
       }
 
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.commitTransaction();
       }
 
@@ -424,7 +424,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.endSession();
       }
     }
@@ -497,7 +497,7 @@ export abstract class CrudService<ModelType extends IModel> {
         documents.push(await this.replaceModel(payload, dereferencedOptions));
       }
 
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.commitTransaction();
       }
 
@@ -511,7 +511,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.endSession();
       }
     }
@@ -622,7 +622,7 @@ export abstract class CrudService<ModelType extends IModel> {
         documents.push(await this.mergeModel(payload, dereferencedOptions));
       }
 
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.commitTransaction();
       }
 
@@ -636,7 +636,7 @@ export abstract class CrudService<ModelType extends IModel> {
       throw error;
     } finally {
       // end the session if it was created for the operation
-      if (!dereferencedOptions?.session) {
+      if (!options?.session) {
         await session.endSession();
       }
     }
