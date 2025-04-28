@@ -766,7 +766,11 @@ export const contextualizeExpression = (
     return "$" + expression.replace("$", context + ".");
   }
 
-  if (typeof expression === "object" && !isValidObjectId(expression)) {
+  if (
+    expression !== null &&
+    typeof expression === "object" &&
+    !isValidObjectId(expression)
+  ) {
     return Object.entries(expression).reduce((acc, [key, value]) => {
       const newValue = contextualizeExpression(context, value);
       return { ...acc, [key]: newValue };
